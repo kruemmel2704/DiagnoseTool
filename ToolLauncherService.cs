@@ -133,8 +133,23 @@ namespace DiagnoseTool
                 string arguments = "";
                 if (key == "FurMark")
                 {
-                    string fileName = Path.GetFileName(tool.Path);
-                    if (fileName.Equals("FurMark2.exe", StringComparison.OrdinalIgnoreCase))
+                    bool isFurMark2 = false;
+                    try
+                    {
+                        var versionInfo = FileVersionInfo.GetVersionInfo(tool.Path);
+                        string productName = versionInfo.ProductName ?? "";
+                        string fileVersion = versionInfo.FileVersion ?? "";
+                        isFurMark2 = productName.IndexOf("FurMark 2", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                     productName.IndexOf("FurMark2", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                     fileVersion.StartsWith("2.") ||
+                                     Path.GetFileName(tool.Path).Equals("FurMark2.exe", StringComparison.OrdinalIgnoreCase);
+                    }
+                    catch
+                    {
+                        isFurMark2 = Path.GetFileName(tool.Path).Equals("FurMark2.exe", StringComparison.OrdinalIgnoreCase);
+                    }
+
+                    if (isFurMark2)
                     {
                         // FurMark 2: Run standard 1080p OpenGL donut stress test directly
                         arguments = "--demo furmark-gl --p1080";
@@ -145,6 +160,7 @@ namespace DiagnoseTool
                         arguments = "/nogui /width=1920 /height=1080 /run_stress";
                     }
                 }
+
 
                 var startInfo = new ProcessStartInfo
                 {
