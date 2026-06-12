@@ -1,0 +1,41 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.1
+
+    - name: Setup NuGet
+      uses: nuget/setup-nuget@v1
+
+    - name: Restore NuGet Packages
+      run: nuget restore DiagnoseTool.csproj
+
+    - name: Build Project
+      run: msbuild DiagnoseTool.csproj /p:Configuration=Release /p:Platform="Any CPU"
+
+    - name: Prepare Release Package
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force -Path .\publish
+        Copy-Item -Path .\bin\Release\net48\DiagnoseTool.exe -Destination .\publish\
+        Copy-Item -Path .\bin\Release\net48\LibreHardwareMonitorLib.dll -Destination .\publish\
+        Compress-Archive -Path .\publish\* -DestinationPath .\DiagnoseTool.zip
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v1
+      with:
+        files: DiagnoseTool.zip
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
