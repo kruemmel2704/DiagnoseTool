@@ -20,6 +20,7 @@ namespace DiagnoseTool
 
     public class HardwareDiagnostics
     {
+        public string CpuName { get; set; } = "AMD / Intel Processor";
         public float CpuAverageLoad { get; set; }
         public float CpuAverageTemp { get; set; }
         public float CpuClockSpeed { get; set; }
@@ -80,6 +81,7 @@ namespace DiagnoseTool
                     // --- CPU ---
                     if (hardware.HardwareType == HardwareType.Cpu)
                     {
+                        diag.CpuName = hardware.Name;
                         float totalTemp = 0;
                         int tempCount = 0;
                         float totalClock = 0;

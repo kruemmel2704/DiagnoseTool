@@ -18,6 +18,12 @@ namespace DiagnoseTool
         private int _selectedTab = 0; // 0 = Dashboard, 1 = Tools, 2 = Repair, 3 = Info
         private string _statusMessage = "Ready";
         private bool _isStatusError = false;
+        
+        // Recording states
+        private bool _isRecording = false;
+        private DateTime _recordingStartTime;
+        private readonly List<LogDataPoint> _recordedData = new List<LogDataPoint>();
+        private string _recordingTimeDisplay = "00:00:00";
 
         public MainViewModel()
         {
@@ -31,6 +37,8 @@ namespace DiagnoseTool
             RefreshUsbCommand = new RelayCommand(ExecuteRefreshUsb);
             SelectTabCommand = new RelayCommand<string>(ExecuteSelectTab);
             RunRepairCommand = new RelayCommand<string>(ExecuteRunRepair);
+            StartRecordingCommand = new RelayCommand(ExecuteStartRecording, () => !IsRecording);
+            StopRecordingCommand = new RelayCommand(ExecuteStopRecording, () => IsRecording);
 
             // Fetch initial data
             UpdateDiagnostics();
@@ -96,6 +104,28 @@ namespace DiagnoseTool
             set => SetProperty(ref _isStatusError, value);
         }
 
+        public bool IsRecording
+        {
+            get => _isRecording;
+            set
+            {
+                if (SetProperty(ref _isRecording, value))
+                {
+                    OnPropertyChanged(nameof(IsNotRecording));
+                }
+            }
+        }
+
+        public bool IsNotRecording => !IsRecording;
+
+        public string RecordingTimeDisplay
+        {
+            get => _recordingTimeDisplay;
+            set => SetProperty(ref _recordingTimeDisplay, value);
+        }
+
+        public int RecordedSamplesCount => _recordedData.Count;
+
         // --- Commands ---
         public RelayCommand<string> LaunchCommand { get; }
         public RelayCommand<string> BrowseCommand { get; }
@@ -103,11 +133,33 @@ namespace DiagnoseTool
         public RelayCommand RefreshUsbCommand { get; }
         public RelayCommand<string> SelectTabCommand { get; }
         public RelayCommand<string> RunRepairCommand { get; }
+        public RelayCommand StartRecordingCommand { get; }
+        public RelayCommand StopRecordingCommand { get; }
 
         private void TimerTick(object sender, EventArgs e)
         {
             UpdateDiagnostics();
             CurrentTime = DateTime.Now.ToString("HH:mm:ss - dd.MM.yyyy");
+
+            if (IsRecording)
+            {
+                var duration = DateTime.Now - _recordingStartTime;
+                RecordingTimeDisplay = string.Format("{0:D2}:{1:D2}:{2:D2}", duration.Hours, duration.Minutes, duration.Seconds);
+
+                if (Diagnostics != null)
+                {
+                    _recordedData.Add(new LogDataPoint
+                    {
+                        Timestamp = DateTime.Now,
+                        CpuCpuLoad = Diagnostics.CpuAverageLoad,
+                        CpuCpuTemp = Diagnostics.CpuAverageTemp,
+                        GpuGpuLoad = Diagnostics.GpuLoad,
+                        GpuGpuTemp = Diagnostics.GpuTemp,
+                        RamPercent = Diagnostics.RamPercent
+                    });
+                    OnPropertyChanged(nameof(RecordedSamplesCount));
+                }
+            }
         }
 
         private void UpdateDiagnostics()
@@ -236,10 +288,79 @@ namespace DiagnoseTool
             }
         }
 
+        private void ExecuteStartRecording()
+        {
+            _recordedData.Clear();
+            _recordingStartTime = DateTime.Now;
+            IsRecording = true;
+            RecordingTimeDisplay = "00:00:00";
+            OnPropertyChanged(nameof(RecordedSamplesCount));
+            ShowStatus("Werte-Aufzeichnung gestartet.", false);
+        }
+
+        private void ExecuteStopRecording()
+        {
+            if (!IsRecording) return;
+            IsRecording = false;
+
+            if (_recordedData.Count == 0)
+            {
+                ShowStatus("Keine Datenpunkte erfasst. Aufzeichnung verworfen.", true);
+                return;
+            }
+
+            var saveFileDialog = new SaveFileDialog
+            {
+                Filter = "PDF-Dateien (*.pdf)|*.pdf",
+                Title = "Prüfbericht speichern",
+                FileName = $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+            };
+
+            if (saveFileDialog.ShowDialog() == true)
+            {
+                try
+                {
+                    string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
+                    string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
+                    string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
+
+                    PdfReportService.GenerateReport(
+                        saveFileDialog.FileName,
+                        cpu,
+                        gpu,
+                        ram,
+                        _recordingStartTime,
+                        DateTime.Now,
+                        _recordedData
+                    );
+
+                    ShowStatus("PDF-Prüfbericht erfolgreich gespeichert!", false);
+                }
+                catch (Exception ex)
+                {
+                    ShowStatus($"Fehler beim Erstellen des Berichts: {ex.Message}", true);
+                }
+            }
+            else
+            {
+                ShowStatus("Aufzeichnung beendet (nicht gespeichert).", false);
+            }
+        }
+
         public void Dispose()
         {
             _timer?.Stop();
             _monitorService?.Dispose();
         }
+    }
+
+    public class LogDataPoint
+    {
+        public DateTime Timestamp { get; set; }
+        public float CpuCpuLoad { get; set; }
+        public float CpuCpuTemp { get; set; }
+        public float GpuGpuLoad { get; set; }
+        public float GpuGpuTemp { get; set; }
+        public float RamPercent { get; set; }
     }
 }

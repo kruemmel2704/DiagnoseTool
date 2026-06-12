@@ -215,6 +215,114 @@
                         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
                             <StackPanel>
                                 
+                                <!-- Werte-Aufzeichnung (PDF-Report) Card -->
+                                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="MESSWERTE-AUFZEICHNUNG" FontWeight="Bold" Foreground="{StaticResource BrushAccentCyan}" FontSize="11" Margin="0,0,0,10"/>
+                                        
+                                        <!-- Active Recording Indicator -->
+                                        <Grid Margin="0,0,0,12">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            
+                                            <!-- Pulsing Red Dot (Only visible when IsRecording is true) -->
+                                            <Ellipse x:Name="recordingDot" Width="10" Height="10" Fill="#EF4444" VerticalAlignment="Center" Margin="0,0,8,0" 
+                                                     Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                                <Trigger.EnterActions>
+                                                                    <BeginStoryboard x:Name="PulsingDot">
+                                                                        <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                                            <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1.0" To="0.2" Duration="0:0:0.8"/>
+                                                                        </Storyboard>
+                                                                    </BeginStoryboard>
+                                                                </Trigger.EnterActions>
+                                                                <Trigger.ExitActions>
+                                                                    <StopStoryboard BeginStoryboardName="PulsingDot"/>
+                                                                </Trigger.ExitActions>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Text" Value="Bereit zur Aufnahme" />
+                                                        <Setter Property="Foreground" Value="{StaticResource BrushTextSecondary}" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsRecording}" Value="True">
+                                                                <Setter Property="Text" Value="Aufzeichnung läuft..." />
+                                                                <Setter Property="Foreground" Value="#EF4444" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+
+                                        <!-- Stats Details -->
+                                        <Grid Margin="0,0,0,12" Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Messdauer" Style="{StaticResource TextMuted}"/>
+                                                <TextBlock Text="{Binding RecordingTimeDisplay}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                                <TextBlock Text="Datenpunkte" Style="{StaticResource TextMuted}"/>
+                                                <TextBlock Text="{Binding RecordedSamplesCount}" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Start/Stop Buttons -->
+                                        <Grid>
+                                            <!-- Start button (Visible when NOT recording) -->
+                                            <Button Style="{StaticResource PrimaryButton}" 
+                                                    Content="Aufzeichnung starten" 
+                                                    Command="{Binding StartRecordingCommand}" 
+                                                    Height="36"
+                                                    Visibility="{Binding IsNotRecording, Converter={StaticResource BoolToVis}}"/>
+                                            
+                                            <!-- Stop button (Visible when recording) -->
+                                            <Button Style="{StaticResource PrimaryButton}" 
+                                                    Background="#EF4444"
+                                                    Content="Stoppen &amp; PDF erstellen" 
+                                                    Command="{Binding StopRecordingCommand}" 
+                                                    Height="36"
+                                                    Visibility="{Binding IsRecording, Converter={StaticResource BoolToVis}}">
+                                                <Button.Template>
+                                                    <ControlTemplate TargetType="Button">
+                                                        <Border x:Name="border" CornerRadius="8" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="true">
+                                                            <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                                                        </Border>
+                                                        <ControlTemplate.Triggers>
+                                                            <Trigger Property="IsMouseOver" Value="true">
+                                                                <Setter TargetName="border" Property="Background" Value="#F87171" />
+                                                                <Setter TargetName="border" Property="Effect">
+                                                                    <Setter.Value>
+                                                                        <DropShadowEffect BlurRadius="12" Color="#EF4444" Opacity="0.5" ShadowDepth="0" />
+                                                                    </Setter.Value>
+                                                                </Setter>
+                                                            </Trigger>
+                                                            <Trigger Property="IsPressed" Value="true">
+                                                                <Setter TargetName="border" Property="Background" Value="#DC2626" />
+                                                            </Trigger>
+                                                        </ControlTemplate.Triggers>
+                                                    </ControlTemplate>
+                                                </Button.Template>
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
                                 <!-- CPU Overview Card -->
                                 <Border Style="{StaticResource CardStyle}">
                                     <StackPanel>
