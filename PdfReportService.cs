@@ -293,5 +293,178 @@ namespace DiagnoseTool
                 return ms.ToArray();
             }
         }
+
+        public static void GenerateBatteryReport(
+            string filePath,
+            string cpuName,
+            string gpuName,
+            string ramTotalDisplay,
+            BatteryInfo batteryInfo,
+            DateTime startTime,
+            DateTime endTime,
+            double startPercent,
+            double endPercent,
+            System.Collections.Generic.List<string> logEntries)
+        {
+            // Create PDF Document
+            var document = new PdfDocument();
+            document.Info.Title = "Batterie-Prüfbericht";
+            document.Info.Author = "CPM Diagnose Tool";
+            document.Info.Subject = "Battery stress test and health diagnostics";
+
+            // Add Page (DIN A4 size: 595 x 842 points)
+            var page = document.AddPage();
+            page.Size = PdfSharp.PageSize.A4;
+            var gfx = XGraphics.FromPdfPage(page);
+
+            // --- Colors ---
+            var colorPrimary = XColor.FromArgb(16, 185, 129); // Battery green color (matching visual identity)
+            var colorDark = XColor.FromArgb(30, 41, 59);     // Dark Slate
+            var colorGray = XColor.FromArgb(100, 116, 139);   // Muted Slate
+            var colorLightBg = XColor.FromArgb(245, 247, 250); // Light Gray Card
+            var colorBorder = XColor.FromArgb(226, 232, 240); // Card border
+
+            // --- Fonts ---
+            var fontTitle = new XFont("Segoe UI", 20, XFontStyle.Bold);
+            var fontSubtitle = new XFont("Segoe UI", 10, XFontStyle.Italic);
+            var fontHeading = new XFont("Segoe UI", 12, XFontStyle.Bold);
+            var fontSubHeading = new XFont("Segoe UI", 10.5, XFontStyle.Bold);
+            var fontBody = new XFont("Segoe UI", 9, XFontStyle.Regular);
+            var fontBodyBold = new XFont("Segoe UI", 9, XFontStyle.Bold);
+            var fontMuted = new XFont("Segoe UI", 8, XFontStyle.Regular);
+
+            // --- 1. Header (Title & CPM Logo) ---
+            gfx.DrawString("BATTERIE-PRÜFBERICHT", fontTitle, new XSolidBrush(colorPrimary), 40, 60);
+            gfx.DrawString("Batterie-Gesundheitsdiagnose & Stresstest Protokoll", fontSubtitle, new XSolidBrush(colorGray), 40, 76);
+
+            // Draw CPM Logo
+            try
+            {
+                byte[] logoBytes = GetCpmLogoPng(120, 43);
+                using (var ms = new MemoryStream(logoBytes))
+                {
+                    var logoImage = XImage.FromStream(ms);
+                    gfx.DrawImage(logoImage, 435, 40, 120, 43);
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to draw logo: {ex.Message}");
+                gfx.DrawString("CPM", new XFont("Segoe UI", 18, XFontStyle.Bold), new XSolidBrush(colorPrimary), 490, 60);
+            }
+
+            // Draw Divider Line
+            var penDivider = new XPen(colorPrimary, 1.5);
+            gfx.DrawLine(penDivider, 40, 95, 555, 95);
+
+            // --- 2. Section: System- & Batterie-Daten ---
+            // Draw background card for static info
+            var rectSystemBox = new XRect(40, 110, 515, 115);
+            gfx.DrawRectangle(new XSolidBrush(colorLightBg), rectSystemBox);
+            gfx.DrawRectangle(new XPen(colorBorder, 1), rectSystemBox);
+
+            // Columns layout inside the card
+            // Column 1: Battery Health Specifications
+            gfx.DrawString("BATTERIE-SPEZIFIKATIONEN", fontSubHeading, new XSolidBrush(colorPrimary), 52, 128);
+            gfx.DrawString($"Gesundheitszustand (Health): {batteryInfo.HealthDisplay}", fontBodyBold, new XSolidBrush(colorDark), 52, 144);
+            gfx.DrawString($"Hersteller / Modell:         {batteryInfo.Manufacturer} / {batteryInfo.DeviceName}", fontBody, new XSolidBrush(colorDark), 52, 158);
+            gfx.DrawString($"Design-Kapazität:            {batteryInfo.DesignCapacityDisplay}", fontBody, new XSolidBrush(colorDark), 52, 172);
+            gfx.DrawString($"Volle Ladekapazität:         {batteryInfo.FullChargeCapacityDisplay}", fontBody, new XSolidBrush(colorDark), 52, 186);
+            gfx.DrawString($"Batterie-Chemie:             {batteryInfo.Chemistry}", fontBody, new XSolidBrush(colorDark), 52, 200);
+
+            // Column 2: System Specs & Test details
+            gfx.DrawString("TEST-INFO & RUNTIME", fontSubHeading, new XSolidBrush(colorPrimary), 320, 128);
+            gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 144);
+            gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 158);
+            
+            var testDuration = endTime - startTime;
+            gfx.DrawString($"Testdauer:    {testDuration.Hours:D2}:{testDuration.Minutes:D2}:{testDuration.Seconds:D2}", fontBody, new XSolidBrush(colorDark), 320, 172);
+            gfx.DrawString($"CPU:          {cpuName}", fontBody, new XSolidBrush(colorDark), 320, 186);
+            gfx.DrawString($"Grafikkarte:  {gpuName}", fontBody, new XSolidBrush(colorDark), 320, 200);
+
+            // --- 3. Section: Zusammenfassung Stresstest ---
+            gfx.DrawString("ZUSAMMENFASSUNG DES STRESSTESTS", fontHeading, new XSolidBrush(colorDark), 40, 250);
+
+            // Draw Summary Box
+            var rectSummaryBox = new XRect(40, 262, 515, 60);
+            gfx.DrawRectangle(new XSolidBrush(XColor.FromArgb(240, 253, 250)), rectSummaryBox); // Light mint green bg
+            gfx.DrawRectangle(new XPen(XColor.FromArgb(186, 230, 218), 1), rectSummaryBox);
+
+            var totalDrain = startPercent - endPercent;
+            double hours = testDuration.TotalHours;
+            double dischargeRate = hours > 0 ? totalDrain / hours : 0;
+            double estimatedRuntime = dischargeRate > 0 ? endPercent / dischargeRate : 0;
+
+            gfx.DrawString($"Anfangsladung: {startPercent:F0}%", fontBodyBold, new XSolidBrush(colorDark), 52, 278);
+            gfx.DrawString($"Endladung:     {endPercent:F0}%", fontBodyBold, new XSolidBrush(colorDark), 52, 292);
+            gfx.DrawString($"Gesamt-Verlust: {totalDrain:F0}% in {testDuration.Minutes} Min.", fontBodyBold, new XSolidBrush(XColor.FromArgb(220, 38, 38)), 52, 306);
+
+            gfx.DrawString($"Entladungsrate:         ~{dischargeRate:F1}% / Std.", fontBodyBold, new XSolidBrush(colorDark), 320, 278);
+            gfx.DrawString($"Belastungstyp:          YouTube 4K HDR Stress-Test", fontBody, new XSolidBrush(colorDark), 320, 292);
+            
+            string runtimeStr = dischargeRate > 0 ? $"{estimatedRuntime:F1} Std." : "Unbekannt";
+            gfx.DrawString($"Proj. Restlaufzeit:     ~{runtimeStr} (unter Last)", fontBodyBold, new XSolidBrush(colorDark), 320, 306);
+
+            // --- 4. Section: Chronologischer Testverlauf (Timeline Table) ---
+            gfx.DrawString("PROTOKOLL DES TESTVERLAUFS", fontHeading, new XSolidBrush(colorDark), 40, 345);
+
+            // Draw Table Header
+            double histY = 360;
+            double rowHeight = 18;
+            var brushHeader = new XSolidBrush(XColor.FromArgb(241, 245, 249));
+            gfx.DrawRectangle(brushHeader, 40, histY, 515, rowHeight);
+            gfx.DrawRectangle(new XPen(colorBorder, 1), 40, histY, 515, rowHeight);
+
+            gfx.DrawString("Eintrag", fontBodyBold, new XSolidBrush(colorDark), 50, histY + 12);
+
+            // Downsample log list to fit up to 20 entries on the page
+            var displayList = new System.Collections.Generic.List<string>();
+            if (logEntries.Count <= 20)
+            {
+                displayList.AddRange(logEntries);
+            }
+            else
+            {
+                displayList.Add(logEntries[0]); // Start
+                
+                double step = (double)(logEntries.Count - 1) / 19;
+                for (int idx = 1; idx < 19; idx++)
+                {
+                    int targetIdx = (int)Math.Round(idx * step);
+                    if (targetIdx > 0 && targetIdx < logEntries.Count - 1)
+                    {
+                        displayList.Add(logEntries[targetIdx]);
+                    }
+                }
+                
+                displayList.Add(logEntries[logEntries.Count - 1]); // End
+            }
+
+            // Draw Rows of History
+            double currentY = histY + rowHeight;
+            bool isAltRow = false;
+            var brushAltRow = new XSolidBrush(XColor.FromArgb(250, 251, 252));
+            var brushWhite = new XSolidBrush(XColor.FromArgb(255, 255, 255));
+
+            foreach (var logLine in displayList)
+            {
+                // Alternating background
+                gfx.DrawRectangle(isAltRow ? brushAltRow : brushWhite, 40, currentY, 515, rowHeight);
+                gfx.DrawRectangle(new XPen(colorBorder, 1), 40, currentY, 515, rowHeight);
+
+                gfx.DrawString(logLine, fontBody, new XSolidBrush(colorDark), 50, currentY + 12);
+
+                currentY += rowHeight;
+                isAltRow = !isAltRow;
+            }
+
+            // --- 5. Footer ---
+            gfx.DrawLine(new XPen(colorBorder, 1), 40, 800, 555, 800);
+            gfx.DrawString("Generiert mit CPM Hardware-Diagnose Tool", fontMuted, new XSolidBrush(colorGray), 40, 814);
+            gfx.DrawString("Seite 1 von 1", fontMuted, new XSolidBrush(colorGray), 510, 814);
+
+            // Save PDF
+            document.Save(filePath);
+        }
     }
 }
