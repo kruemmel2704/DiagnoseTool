@@ -49,7 +49,7 @@
                                 <DropShadowEffect BlurRadius="8" Color="{StaticResource ColorAccentCyan}" Opacity="0.6" ShadowDepth="0"/>
                             </Path.Effect>
                         </Path>
-                        <TextBlock Text="DIAGNOSTICS" FontSize="20" FontWeight="Black" LetterSpacing="2" Foreground="{StaticResource BrushTextPrimary}">
+                        <TextBlock Text="DIAGNOSTICS" FontSize="20" FontWeight="Black" CharacterSpacing="200" Foreground="{StaticResource BrushTextPrimary}">
                             <TextBlock.Effect>
                                 <DropShadowEffect BlurRadius="4" Color="{StaticResource ColorAccentPurple}" Opacity="0.3" ShadowDepth="1"/>
                             </TextBlock.Effect>
@@ -84,7 +84,7 @@
                     <!-- USB Detection Widget -->
                     <Border Grid.Row="3" Style="{StaticResource CardStyle}" Padding="12" Margin="4,0,4,16" Background="#0C0E14" BorderBrush="#1C1F2E">
                         <StackPanel>
-                            <TextBlock Text="USB DRIVES SCANNER" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushTextMuted}" LetterSpacing="1" Margin="0,0,0,8"/>
+                            <TextBlock Text="USB DRIVES SCANNER" FontSize="10" FontWeight="Bold" Foreground="{StaticResource BrushTextMuted}" CharacterSpacing="100" Margin="0,0,0,8"/>
                             <Button Style="{StaticResource ModernButton}" 
                                     Content="Scan Removable Drives" 
                                     Command="{Binding RefreshUsbCommand}" 
