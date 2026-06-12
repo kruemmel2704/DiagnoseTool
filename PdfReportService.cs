@@ -9,6 +9,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using PdfSharp.Pdf;
 using PdfSharp.Drawing;
+using Path = System.Windows.Shapes.Path;
 
 namespace DiagnoseTool
 {
@@ -35,11 +36,11 @@ namespace DiagnoseTool
             var gfx = XGraphics.FromPdfPage(page);
 
             // --- Colors ---
-            var colorPrimary = XColor.FromRgb(0, 129, 188); // CPM Blue
-            var colorDark = XColor.FromRgb(30, 41, 59);     // Dark Slate
-            var colorGray = XColor.FromRgb(100, 116, 139);   // Muted Slate
-            var colorLightBg = XColor.FromRgb(245, 247, 250); // Light Gray Card
-            var colorBorder = XColor.FromRgb(226, 232, 240); // Card border
+            var colorPrimary = XColor.FromArgb(0, 129, 188); // CPM Blue
+            var colorDark = XColor.FromArgb(30, 41, 59);     // Dark Slate
+            var colorGray = XColor.FromArgb(100, 116, 139);   // Muted Slate
+            var colorLightBg = XColor.FromArgb(245, 247, 250); // Light Gray Card
+            var colorBorder = XColor.FromArgb(226, 232, 240); // Card border
 
             // --- Fonts ---
             var fontTitle = new XFont("Segoe UI", 22, XFontStyle.Bold);
@@ -102,7 +103,7 @@ namespace DiagnoseTool
             // Draw Summary Table Header
             double tableY = 245;
             double rowHeight = 22;
-            var brushHeader = new XSolidBrush(XColor.FromRgb(241, 245, 249));
+            var brushHeader = new XSolidBrush(XColor.FromArgb(241, 245, 249));
             gfx.DrawRectangle(brushHeader, 40, tableY, 515, rowHeight);
             gfx.DrawRectangle(new XPen(colorBorder, 1), 40, tableY, 515, rowHeight);
 
@@ -176,8 +177,8 @@ namespace DiagnoseTool
             // Draw Rows of History
             double currentY = histY + rowHeight;
             bool isAltRow = false;
-            var brushAltRow = new XSolidBrush(XColor.FromRgb(250, 251, 252));
-            var brushWhite = new XSolidBrush(XColor.FromRgb(255, 255, 255));
+            var brushAltRow = new XSolidBrush(XColor.FromArgb(250, 251, 252));
+            var brushWhite = new XSolidBrush(XColor.FromArgb(255, 255, 255));
 
             foreach (var point in displayList)
             {
@@ -190,13 +191,13 @@ namespace DiagnoseTool
                 gfx.DrawString($"{point.CpuCpuLoad:F1} %", fontBody, new XSolidBrush(colorDark), 150, currentY + 14);
                 
                 // CPU Temp Color alert
-                var cpuBrush = new XSolidBrush(point.CpuCpuTemp > 80 ? XColor.FromRgb(239, 68, 68) : (point.CpuCpuTemp > 65 ? XColor.FromRgb(245, 158, 11) : colorDark));
+                var cpuBrush = new XSolidBrush(point.CpuCpuTemp > 80 ? XColor.FromArgb(239, 68, 68) : (point.CpuCpuTemp > 65 ? XColor.FromArgb(245, 158, 11) : colorDark));
                 gfx.DrawString($"{point.CpuCpuTemp:F1} °C", fontBody, cpuBrush, 230, currentY + 14);
                 
                 gfx.DrawString($"{point.GpuGpuLoad:F1} %", fontBody, new XSolidBrush(colorDark), 320, currentY + 14);
                 
                 // GPU Temp Color alert
-                var gpuBrush = new XSolidBrush(point.GpuGpuTemp > 83 ? XColor.FromRgb(239, 68, 68) : (point.GpuGpuTemp > 75 ? XColor.FromRgb(245, 158, 11) : colorDark));
+                var gpuBrush = new XSolidBrush(point.GpuGpuTemp > 83 ? XColor.FromArgb(239, 68, 68) : (point.GpuGpuTemp > 75 ? XColor.FromArgb(245, 158, 11) : colorDark));
                 gfx.DrawString($"{point.GpuGpuTemp:F1} °C", fontBody, gpuBrush, 400, currentY + 14);
                 
                 gfx.DrawString($"{point.RamPercent:F1} %", fontBody, new XSolidBrush(colorDark), 480, currentY + 14);
@@ -228,7 +229,7 @@ namespace DiagnoseTool
             double y,
             double height)
         {
-            gfx.DrawRectangle(new XSolidBrush(XColor.FromRgb(255, 255, 255)), 40, y, 515, height);
+            gfx.DrawRectangle(new XSolidBrush(XColor.FromArgb(255, 255, 255)), 40, y, 515, height);
             gfx.DrawRectangle(new XPen(borderColor, 1), 40, y, 515, height);
 
             gfx.DrawString(label, fontBold, new XSolidBrush(textColor), 50, y + 14);
