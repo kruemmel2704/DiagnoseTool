@@ -15,7 +15,7 @@ namespace DiagnoseTool
         private HardwareDiagnostics _diagnostics;
         private List<TestTool> _tools;
         private string _currentTime;
-        private int _selectedTab = 0; // 0 = Dashboard, 1 = Tools, 2 = Info
+        private int _selectedTab = 0; // 0 = Dashboard, 1 = Tools, 2 = Repair, 3 = Info
         private string _statusMessage = "Ready";
         private bool _isStatusError = false;
 
@@ -30,6 +30,7 @@ namespace DiagnoseTool
             ClearPathCommand = new RelayCommand<string>(ExecuteClearPath);
             RefreshUsbCommand = new RelayCommand(ExecuteRefreshUsb);
             SelectTabCommand = new RelayCommand<string>(ExecuteSelectTab);
+            RunRepairCommand = new RelayCommand<string>(ExecuteRunRepair);
 
             // Fetch initial data
             UpdateDiagnostics();
@@ -72,6 +73,7 @@ namespace DiagnoseTool
                 {
                     OnPropertyChanged(nameof(IsDashboardSelected));
                     OnPropertyChanged(nameof(IsToolsSelected));
+                    OnPropertyChanged(nameof(IsRepairSelected));
                     OnPropertyChanged(nameof(IsInfoSelected));
                 }
             }
@@ -79,7 +81,8 @@ namespace DiagnoseTool
 
         public bool IsDashboardSelected => SelectedTab == 0;
         public bool IsToolsSelected => SelectedTab == 1;
-        public bool IsInfoSelected => SelectedTab == 2;
+        public bool IsRepairSelected => SelectedTab == 2;
+        public bool IsInfoSelected => SelectedTab == 3;
 
         public string StatusMessage
         {
@@ -99,6 +102,7 @@ namespace DiagnoseTool
         public RelayCommand<string> ClearPathCommand { get; }
         public RelayCommand RefreshUsbCommand { get; }
         public RelayCommand<string> SelectTabCommand { get; }
+        public RelayCommand<string> RunRepairCommand { get; }
 
         private void TimerTick(object sender, EventArgs e)
         {
@@ -162,6 +166,52 @@ namespace DiagnoseTool
             if (int.TryParse(tabIndexStr, out int index))
             {
                 SelectedTab = index;
+            }
+        }
+
+        private void ExecuteRunRepair(string key)
+        {
+            string commandArgs = "";
+            string description = "";
+
+            switch (key)
+            {
+                case "sfc":
+                    commandArgs = "/k sfc /scannow";
+                    description = "System File Checker (SFC)";
+                    break;
+                case "dism_restore":
+                    commandArgs = "/k dism /online /cleanup-image /restorehealth";
+                    description = "DISM Restore Health";
+                    break;
+                case "dism_check":
+                    commandArgs = "/k dism /online /cleanup-image /checkhealth";
+                    description = "DISM Check Health";
+                    break;
+                case "chkdsk":
+                    commandArgs = "/k chkdsk C:";
+                    description = "Chkdsk C: (Read-only)";
+                    break;
+                default:
+                    ShowStatus("Unknown repair command", true);
+                    return;
+            }
+
+            try
+            {
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "cmd.exe",
+                    Arguments = commandArgs,
+                    UseShellExecute = true,
+                    Verb = "runas"
+                };
+                System.Diagnostics.Process.Start(startInfo);
+                ShowStatus($"Started {description} in cmd window.", false);
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"Failed to start repair command: {ex.Message}", true);
             }
         }
 

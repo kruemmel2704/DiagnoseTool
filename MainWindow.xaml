@@ -80,10 +80,17 @@
                                      Margin="0,8,0,0" />
                                      
                         <RadioButton Style="{StaticResource SidebarButton}" 
+                                     Content="System Repair" 
+                                     IsChecked="{Binding IsRepairSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="2" 
+                                     Margin="0,8,0,0" />
+                                     
+                        <RadioButton Style="{StaticResource SidebarButton}" 
                                      Content="System Guide" 
                                      IsChecked="{Binding IsInfoSelected, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}" 
-                                     CommandParameter="2" 
+                                     CommandParameter="3" 
                                      Margin="0,8,0,0" />
                     </StackPanel>
 
@@ -476,7 +483,99 @@
                         </ScrollViewer>
                     </Grid>
                     
-                    <!-- PAGE 2: SYSTEM GUIDE -->
+                    <!-- PAGE 2: SYSTEM REPAIR -->
+                    <Grid Visibility="{Binding IsRepairSelected, Converter={StaticResource BoolToVis}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" Style="{StaticResource CardStyle}" Padding="16,12" Margin="0,0,0,16" Background="#0C0E14" BorderBrush="#1C1F2E">
+                            <StackPanel>
+                                <TextBlock Text="Windows System Repair Utilities" FontWeight="Bold" FontSize="14" Foreground="{StaticResource BrushAccentCyan}"/>
+                                <TextBlock Text="These built-in Windows diagnostics tools scan and repair file corruption, registry components, and system integrity." Style="{StaticResource TextMuted}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <UniformGrid Columns="2" VerticalAlignment="Top">
+                                <!-- SFC Card -->
+                                <Border Style="{StaticResource CardStyle}" Margin="5">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="System File Checker (SFC)" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                        <TextBlock Grid.Row="1" Text="Scans all protected system files and replaces corrupted files with a cached copy from the Windows Component Store. Extremely useful for resolving random crashes and system instability." Style="{StaticResource TextSubheader}" Foreground="{StaticResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Style="{StaticResource PrimaryButton}" Content="Run SFC Scan (sfc /scannow)" Command="{Binding RunRepairCommand}" CommandParameter="sfc" Height="38"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- DISM Restore Health Card -->
+                                <Border Style="{StaticResource CardStyle}" Margin="5">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="DISM Restore Health" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushAccentPurple}"/>
+                                        <TextBlock Grid.Row="1" Text="Scans the Windows image for component store corruption and performs repair operations automatically by downloading replacement files from Windows Update. Fixes deep OS issues." Style="{StaticResource TextSubheader}" Foreground="{StaticResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Style="{StaticResource PrimaryButton}" Background="{StaticResource BrushAccentPurple}" Content="Run DISM Repair" Command="{Binding RunRepairCommand}" CommandParameter="dism_restore" Height="38">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border x:Name="border" CornerRadius="8" Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" SnapsToDevicePixels="true">
+                                                        <ContentPresenter x:Name="contentPresenter" HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="true">
+                                                            <Setter TargetName="border" Property="Background" Value="#B572FF" />
+                                                            <Setter TargetName="border" Property="Effect" Value="{StaticResource ShadowGlowPurple}" />
+                                                        </Trigger>
+                                                        <Trigger Property="IsPressed" Value="true">
+                                                            <Setter TargetName="border" Property="Background" Value="#8F3BE6" />
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+
+                                <!-- DISM Check Health Card -->
+                                <Border Style="{StaticResource CardStyle}" Margin="5">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="DISM Check Health" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                        <TextBlock Grid.Row="1" Text="Quickly checks whether the Windows component store image has been flagged as corrupted by a previous process. This is a read-only check that takes only a few seconds." Style="{StaticResource TextSubheader}" Foreground="{StaticResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Style="{StaticResource ModernButton}" Content="Run DISM Check" Command="{Binding RunRepairCommand}" CommandParameter="dism_check" Height="38"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Check Disk Card -->
+                                <Border Style="{StaticResource CardStyle}" Margin="5">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="*"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="Check Disk (Chkdsk)" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                        <TextBlock Grid.Row="1" Text="Scans the primary file system on drive C: for logical and physical disk errors. Runs in read-only mode to detect problems. Note: /f or /r repairs require a reboot." Style="{StaticResource TextSubheader}" Foreground="{StaticResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Style="{StaticResource ModernButton}" Content="Run Read-Only chkdsk" Command="{Binding RunRepairCommand}" CommandParameter="chkdsk" Height="38"/>
+                                    </Grid>
+                                </Border>
+                            </UniformGrid>
+                        </ScrollViewer>
+                    </Grid>
+                    
+                    <!-- PAGE 3: SYSTEM GUIDE -->
                     <Grid Visibility="{Binding IsInfoSelected, Converter={StaticResource BoolToVis}}">
                         <ScrollViewer VerticalScrollBarVisibility="Auto">
                             <StackPanel>
