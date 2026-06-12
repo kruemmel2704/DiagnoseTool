@@ -58,6 +58,14 @@ namespace DiagnoseTool
                     ExeName = "prime95.exe",
                     AlternateExeName = "prime95w.exe",
                     Description = "Legendary CPU stress test using Prime Number calculations to expose hardware faults."
+                },
+                new TestTool
+                {
+                    Key = "Victoria",
+                    Name = "Victoria SSD/HDD Utility",
+                    ExeName = "Victoria.exe",
+                    AlternateExeName = "Victoria64.exe",
+                    Description = "Advanced drive diagnostic utility. Scans storage surface blocks, measures access times, reads SMART health data, and remaps bad sectors."
                 }
             };
 
