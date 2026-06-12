@@ -32,9 +32,8 @@ jobs:
       run: |
         New-Item -ItemType Directory -Force -Path .\publish
         $exe = (Get-ChildItem -Path .\bin -Filter DiagnoseTool.exe -Recurse | Select-Object -First 1).FullName
-        $dll = (Get-ChildItem -Path .\bin -Filter LibreHardwareMonitorLib.dll -Recurse | Select-Object -First 1).FullName
-        Copy-Item -Path $exe -Destination .\publish\
-        Copy-Item -Path $dll -Destination .\publish\
+        $outDir = Split-Path -Parent $exe
+        Copy-Item -Path "$outDir\*" -Destination .\publish\ -Recurse
         Compress-Archive -Path .\publish\* -DestinationPath .\DiagnoseTool.zip
 
     - name: Create Release

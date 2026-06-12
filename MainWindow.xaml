@@ -234,16 +234,16 @@
                                                     <Style TargetType="Ellipse">
                                                         <Style.Triggers>
                                                             <DataTrigger Binding="{Binding IsRecording}" Value="True">
-                                                                <Trigger.EnterActions>
+                                                                <DataTrigger.EnterActions>
                                                                     <BeginStoryboard x:Name="PulsingDot">
                                                                         <Storyboard RepeatBehavior="Forever" AutoReverse="True">
                                                                             <DoubleAnimation Storyboard.TargetProperty="Opacity" From="1.0" To="0.2" Duration="0:0:0.8"/>
                                                                         </Storyboard>
                                                                     </BeginStoryboard>
-                                                                </Trigger.EnterActions>
-                                                                <Trigger.ExitActions>
+                                                                </DataTrigger.EnterActions>
+                                                                <DataTrigger.ExitActions>
                                                                     <StopStoryboard BeginStoryboardName="PulsingDot"/>
-                                                                </Trigger.ExitActions>
+                                                                </DataTrigger.ExitActions>
                                                             </DataTrigger>
                                                         </Style.Triggers>
                                                     </Style>
