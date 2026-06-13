@@ -476,8 +476,8 @@
                                         Visibility="{Binding HasDriverError, Converter={StaticResource BoolToVis}}">
                                     <Grid>
                                         <Grid.ColumnDefinitions>
-                                            <Grid.ColumnDefinition Width="Auto"/>
-                                            <Grid.ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
                                         
                                         <!-- Warning Icon (Exclamation Triangle) -->
