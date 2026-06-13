@@ -46,31 +46,30 @@ namespace DiagnoseTool
 
         public HardwareMonitorService()
         {
-            _computer = new Computer
-            {
-                IsCpuEnabled = true,
-                IsGpuEnabled = true,
-                IsMemoryEnabled = true,
-                IsMotherboardEnabled = false,
-                IsControllerEnabled = false,
-                IsNetworkEnabled = false,
-                IsStorageEnabled = false
-            };
-
             try
             {
+                _computer = new Computer
+                {
+                    IsCpuEnabled = true,
+                    IsGpuEnabled = true,
+                    IsMemoryEnabled = true,
+                    IsMotherboardEnabled = false,
+                    IsControllerEnabled = false,
+                    IsNetworkEnabled = false,
+                    IsStorageEnabled = false
+                };
                 _computer.Open();
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to open hardware monitor: {ex.Message}");
+                System.Diagnostics.Debug.WriteLine($"Failed to initialize hardware monitor: {ex.Message}");
             }
         }
 
         public HardwareDiagnostics GetDiagnostics()
         {
             var diag = new HardwareDiagnostics();
-            if (_isDisposed) return diag;
+            if (_isDisposed || _computer == null) return diag;
 
             try
             {
@@ -225,7 +224,7 @@ namespace DiagnoseTool
 
             try
             {
-                _computer.Close();
+                _computer?.Close();
             }
             catch
             {
