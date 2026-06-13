@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
@@ -19,6 +20,8 @@ namespace DiagnoseTool
         private int _selectedTab = 0; // 0 = Dashboard, 1 = Tools, 2 = Repair, 3 = Info, 4 = BatteryTest
         private string _statusMessage = "Ready";
         private bool _isStatusError = false;
+        private bool _isAdmin = false;
+        private bool _hasDriverError = false;
         
         // Recording states
         private bool _isRecording = false;
@@ -54,6 +57,9 @@ namespace DiagnoseTool
             StartBatteryTestCommand = new RelayCommand(ExecuteStartBatteryTest, () => !IsBatteryTestRunning);
             StopBatteryTestCommand = new RelayCommand(ExecuteStopBatteryTest, () => IsBatteryTestRunning);
             SaveBatteryReportCommand = new RelayCommand(ExecuteSaveBatteryReport, () => BatteryTestCompleted);
+
+            // Detect admin privileges
+            IsAdmin = IsRunningAsAdmin();
 
             // Fetch initial data
             UpdateDiagnostics();
@@ -121,6 +127,26 @@ namespace DiagnoseTool
             get => _isStatusError;
             set => SetProperty(ref _isStatusError, value);
         }
+
+        public bool IsAdmin
+        {
+            get => _isAdmin;
+            set
+            {
+                if (SetProperty(ref _isAdmin, value))
+                {
+                    OnPropertyChanged(nameof(AdminStatusText));
+                }
+            }
+        }
+
+        public bool HasDriverError
+        {
+            get => _hasDriverError;
+            set => SetProperty(ref _hasDriverError, value);
+        }
+
+        public string AdminStatusText => IsAdmin ? "v1.0.9 | Admin Privileges Active" : "v1.0.9 | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
@@ -275,6 +301,13 @@ namespace DiagnoseTool
         private void UpdateDiagnostics()
         {
             Diagnostics = _monitorService.GetDiagnostics();
+
+            // Check if CPU is detected but CPU average temperature is not available, and all core temperatures are empty
+            bool cpuDetected = Diagnostics != null && Diagnostics.CpuName != "AMD / Intel Processor";
+            bool noCpuTemp = Diagnostics != null && !Diagnostics.CpuAverageTemp.HasValue && 
+                             (Diagnostics.CpuCores == null || Diagnostics.CpuCores.Count == 0 || Diagnostics.CpuCores.All(c => !c.Temperature.HasValue));
+            
+            HasDriverError = cpuDetected && noCpuTemp;
         }
 
         private void ExecuteLaunch(string key)
@@ -609,6 +642,22 @@ namespace DiagnoseTool
                 {
                     ShowStatus(string.Format("Fehler beim Erstellen des PDF-Berichts: {0}", ex.Message), true);
                 }
+            }
+        }
+
+        private static bool IsRunningAsAdmin()
+        {
+            try
+            {
+                using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
+                {
+                    var principal = new System.Security.Principal.WindowsPrincipal(identity);
+                    return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+                }
+            }
+            catch
+            {
+                return false;
             }
         }
 

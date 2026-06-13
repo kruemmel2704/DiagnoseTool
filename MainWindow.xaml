@@ -123,11 +123,21 @@
                                    FontSize="11" 
                                    FontWeight="Medium" 
                                    Foreground="{StaticResource BrushTextSecondary}" />
-                        <TextBlock Text="v1.0.8 | Admin Privileges Active" 
+                        <TextBlock Text="{Binding AdminStatusText}" 
                                    HorizontalAlignment="Center" 
                                    FontSize="9" 
-                                   Foreground="{StaticResource BrushSuccess}" 
-                                   Margin="0,4,0,0" />
+                                   Margin="0,4,0,0">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{StaticResource BrushDanger}"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsAdmin}" Value="True">
+                                            <Setter Property="Foreground" Value="{StaticResource BrushSuccess}"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -448,14 +458,62 @@
                                 <Grid.RowDefinitions>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
                                 <TextBlock Grid.Row="0" Text="INDIVIDUAL CPU CORES MONITOR" FontWeight="Bold" Foreground="{StaticResource BrushTextPrimary}" FontSize="13"/>
                                 <TextBlock Grid.Row="1" Text="Low-level core sensors for temperature and load. Colors: Cold/Normal (Green), Warm (Orange), Hot (Red)." Style="{StaticResource TextMuted}" Margin="0,4,0,10"/>
 
+                                <!-- Warning panel for Driver Blocked / No Admin -->
+                                <Border Grid.Row="2" 
+                                        Background="#26EF4444" 
+                                        BorderBrush="#EF4444" 
+                                        BorderThickness="1" 
+                                        CornerRadius="6" 
+                                        Padding="12" 
+                                        Margin="0,0,0,12"
+                                        Visibility="{Binding HasDriverError, Converter={StaticResource BoolToVis}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <Grid.ColumnDefinition Width="Auto"/>
+                                            <Grid.ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <!-- Warning Icon (Exclamation Triangle) -->
+                                        <Path Grid.Column="0" 
+                                              Data="M12,2L1,21H23L12,2M12,6L19.8,19H4.2L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z" 
+                                              Fill="#EF4444" 
+                                              Width="20" Height="20" 
+                                              Stretch="Uniform" 
+                                              VerticalAlignment="Top" 
+                                              Margin="0,2,10,0"/>
+                                              
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="Warnung: Temperatursensoren nicht lesbar" 
+                                                       FontWeight="Bold" 
+                                                       Foreground="#EF4444" 
+                                                       FontSize="12" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="Die Temperaturen konnten nicht ausgelesen werden. Mögliche Ursachen:" 
+                                                       Foreground="{StaticResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="• Windows Kernisolierung (Speicherintegrität) blockiert den WinRing0x64.sys Treiber." 
+                                                       Foreground="{StaticResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap"/>
+                                            <TextBlock Text="• Das Programm wurde nicht mit Administratorrechten gestartet." 
+                                                       Foreground="{StaticResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
                                 <!-- Scrollable grid of CPU Cores -->
-                                <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{Binding Diagnostics.CpuCores}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>

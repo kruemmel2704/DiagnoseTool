@@ -18,6 +18,13 @@ namespace DiagnoseTool
             : "#4B5563";
     }
 
+    internal class TempCoreData
+    {
+        public string Name { get; set; }
+        public List<float> Temps { get; } = new List<float>();
+        public List<float> Loads { get; } = new List<float>();
+    }
+
     public class HardwareDiagnostics
     {
         public string CpuName { get; set; } = "AMD / Intel Processor";
@@ -92,7 +99,8 @@ namespace DiagnoseTool
                         int tempCount = 0;
                         float totalClock = 0;
                         int clockCount = 0;
-                        var coreDict = new Dictionary<string, CpuCoreInfo>();
+                        var coreDict = new Dictionary<int, TempCoreData>();
+                        var coreNumberRegex = new System.Text.RegularExpressions.Regex(@"(?:CPU )?Core\s*#?\s*(\d+)", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
 
                         foreach (var sensor in hardware.Sensors)
                         {
@@ -106,27 +114,30 @@ namespace DiagnoseTool
                                                      sensorName.Equals("Tctl/Tdie", StringComparison.OrdinalIgnoreCase) || 
                                                      sensorName.Equals("Tctl", StringComparison.OrdinalIgnoreCase);
 
-                                // Check if it represents a core, CCD, or junction temperature
-                                bool isCoreOrCcdTemp = sensorName.Contains("Core") || 
-                                                       sensorName.Contains("CPU Core") || 
-                                                       sensorName.Contains("Tctl") || 
-                                                       sensorName.Contains("Tdie") || 
-                                                       sensorName.Contains("Tccd") || 
-                                                       sensorName.Contains("CCD");
-
                                 if (isPackageTemp)
                                 {
                                     diag.CpuAverageTemp = sensor.Value;
                                 }
 
-                                if (isCoreOrCcdTemp)
+                                var match = coreNumberRegex.Match(sensorName);
+                                bool isIgnoredName = sensorName.Contains("Distance", StringComparison.OrdinalIgnoreCase) ||
+                                                     sensorName.Contains("TjMax", StringComparison.OrdinalIgnoreCase) ||
+                                                     sensorName.Contains("Tj Max", StringComparison.OrdinalIgnoreCase) ||
+                                                     sensorName.Contains("Max", StringComparison.OrdinalIgnoreCase) ||
+                                                     sensorName.Contains("Average", StringComparison.OrdinalIgnoreCase);
+
+                                if (match.Success && !isIgnoredName)
                                 {
-                                    if (!coreDict.ContainsKey(sensorName))
-                                        coreDict[sensorName] = new CpuCoreInfo { Name = sensorName };
+                                    int coreNum = int.Parse(match.Groups[1].Value);
+                                    if (!coreDict.TryGetValue(coreNum, out var coreData))
+                                    {
+                                        coreData = new TempCoreData { Name = $"CPU Core #{coreNum}" };
+                                        coreDict[coreNum] = coreData;
+                                    }
                                     
-                                    coreDict[sensorName].Temperature = sensor.Value;
                                     if (sensor.Value.HasValue)
                                     {
+                                        coreData.Temps.Add(sensor.Value.Value);
                                         totalTemp += sensor.Value.Value;
                                         tempCount++;
                                     }
@@ -138,13 +149,26 @@ namespace DiagnoseTool
                                 {
                                     diag.CpuAverageLoad = sensor.Value;
                                 }
-                                else if (sensor.Name.Contains("Core") || sensor.Name.Contains("CPU Core"))
+                                else
                                 {
-                                    string coreName = sensor.Name.Replace(" Thread", "").Replace(" Load", "");
-                                    if (!coreDict.ContainsKey(coreName))
-                                        coreDict[coreName] = new CpuCoreInfo { Name = coreName };
-                                    
-                                    coreDict[coreName].Load = sensor.Value;
+                                    var match = coreNumberRegex.Match(sensor.Name);
+                                    bool isIgnoredName = sensor.Name.Contains("Max", StringComparison.OrdinalIgnoreCase) ||
+                                                         sensor.Name.Contains("Average", StringComparison.OrdinalIgnoreCase);
+
+                                    if (match.Success && !isIgnoredName)
+                                    {
+                                        int coreNum = int.Parse(match.Groups[1].Value);
+                                        if (!coreDict.TryGetValue(coreNum, out var coreData))
+                                        {
+                                            coreData = new TempCoreData { Name = $"CPU Core #{coreNum}" };
+                                            coreDict[coreNum] = coreData;
+                                        }
+                                        
+                                        if (sensor.Value.HasValue)
+                                        {
+                                            coreData.Loads.Add(sensor.Value.Value);
+                                        }
+                                    }
                                 }
                             }
                             else if (sensor.SensorType == SensorType.Clock)
@@ -166,7 +190,16 @@ namespace DiagnoseTool
                             diag.CpuClockSpeed = totalClock / clockCount;
                         }
 
-                        diag.CpuCores = coreDict.Values.OrderBy(c => c.Name).ToList();
+                        foreach (var kvp in coreDict.OrderBy(k => k.Key))
+                        {
+                            var coreData = kvp.Value;
+                            diag.CpuCores.Add(new CpuCoreInfo
+                            {
+                                Name = coreData.Name,
+                                Temperature = coreData.Temps.Count > 0 ? coreData.Temps.Average() : (float?)null,
+                                Load = coreData.Loads.Count > 0 ? coreData.Loads.Average() : (float?)null
+                            });
+                        }
                     }
 
                     // --- GPU ---
