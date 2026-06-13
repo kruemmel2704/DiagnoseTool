@@ -92,22 +92,38 @@ namespace DiagnoseTool
                         {
                             if (sensor.SensorType == SensorType.Temperature)
                             {
-                                if (sensor.Name.Contains("Core") || sensor.Name.Contains("CPU Core"))
+                                string sensorName = sensor.Name;
+                                
+                                // Check if it represents the package/overall temperature
+                                bool isPackageTemp = sensorName.Contains("Package") || 
+                                                     sensorName.Equals("Core (Tctl/Tdie)", StringComparison.OrdinalIgnoreCase) || 
+                                                     sensorName.Equals("Tctl/Tdie", StringComparison.OrdinalIgnoreCase) || 
+                                                     sensorName.Equals("Tctl", StringComparison.OrdinalIgnoreCase);
+
+                                // Check if it represents a core, CCD, or junction temperature
+                                bool isCoreOrCcdTemp = sensorName.Contains("Core") || 
+                                                       sensorName.Contains("CPU Core") || 
+                                                       sensorName.Contains("Tctl") || 
+                                                       sensorName.Contains("Tdie") || 
+                                                       sensorName.Contains("Tccd") || 
+                                                       sensorName.Contains("CCD");
+
+                                if (isPackageTemp)
                                 {
-                                    string coreName = sensor.Name;
-                                    if (!coreDict.ContainsKey(coreName))
-                                        coreDict[coreName] = new CpuCoreInfo { Name = coreName };
+                                    diag.CpuAverageTemp = sensor.Value ?? 0;
+                                }
+
+                                if (isCoreOrCcdTemp)
+                                {
+                                    if (!coreDict.ContainsKey(sensorName))
+                                        coreDict[sensorName] = new CpuCoreInfo { Name = sensorName };
                                     
-                                    coreDict[coreName].Temperature = sensor.Value;
+                                    coreDict[sensorName].Temperature = sensor.Value;
                                     if (sensor.Value.HasValue)
                                     {
                                         totalTemp += sensor.Value.Value;
                                         tempCount++;
                                     }
-                                }
-                                else if (sensor.Name.Contains("Package"))
-                                {
-                                    diag.CpuAverageTemp = sensor.Value ?? 0;
                                 }
                             }
                             else if (sensor.SensorType == SensorType.Load)
