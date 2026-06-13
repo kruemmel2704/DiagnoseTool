@@ -25,7 +25,7 @@ jobs:
       run: nuget restore DiagnoseTool.csproj
 
     - name: Build Project
-      run: msbuild DiagnoseTool.csproj /p:Configuration=Release /p:Platform="Any CPU"
+      run: msbuild DiagnoseTool.csproj /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64
 
     - name: Prepare Release Package
       shell: pwsh

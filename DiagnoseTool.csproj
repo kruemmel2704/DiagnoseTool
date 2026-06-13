@@ -9,6 +9,8 @@
     <AssemblyName>DiagnoseTool</AssemblyName>
     <RootNamespace>DiagnoseTool</RootNamespace>
     <Prefer32Bit>false</Prefer32Bit>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
   </PropertyGroup>
 
   <ItemGroup>
