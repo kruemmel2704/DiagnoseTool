@@ -483,14 +483,41 @@ namespace DiagnoseTool
 
             try
             {
-                // Launch the YouTube URL in default browser
-                System.Diagnostics.Process.Start("https://www.youtube.com/watch?v=yq6c8h0Z3-Q");
+                // Launch the YouTube URL in default browser using safe helper
+                OpenUrl("https://www.youtube.com/watch?v=yq6c8h0Z3-Q");
                 ShowStatus("YouTube-Stresstest gestartet. Video wird im Browser abgespielt.", false);
             }
             catch (Exception ex)
             {
                 BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Fehler beim Starten des Browsers: {1}", DateTime.Now, ex.Message));
                 ShowStatus(string.Format("Fehler beim Starten des Browsers: {0}", ex.Message), true);
+            }
+        }
+
+        private void OpenUrl(string url)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start("cmd.exe", $"/c start {url.Replace("&", "^&")}");
+                }
+                catch
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start("powershell.exe", $"-Command \"Start-Process '{url}'\"");
+                    }
+                    catch { }
+                }
             }
         }
 
@@ -595,10 +622,10 @@ namespace DiagnoseTool
     public class LogDataPoint
     {
         public DateTime Timestamp { get; set; }
-        public float CpuCpuLoad { get; set; }
-        public float CpuCpuTemp { get; set; }
-        public float GpuGpuLoad { get; set; }
-        public float GpuGpuTemp { get; set; }
-        public float RamPercent { get; set; }
+        public float? CpuCpuLoad { get; set; }
+        public float? CpuCpuTemp { get; set; }
+        public float? GpuGpuLoad { get; set; }
+        public float? GpuGpuTemp { get; set; }
+        public float? RamPercent { get; set; }
     }
 }

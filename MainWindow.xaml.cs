@@ -13,20 +13,32 @@ namespace DiagnoseTool
             InitializeComponent();
             DataContext = new MainViewModel();
             this.Closing += MainWindow_Closing;
+            this.StateChanged += MainWindow_StateChanged;
+
+            // Constrain maximized size to prevent taskbar overlap
+            this.MaxHeight = SystemParameters.WorkArea.Height;
+            this.MaxWidth = SystemParameters.WorkArea.Width;
         }
 
         private void Window_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            // Allows dragging the borderless window around the screen
+            // Allows dragging and double-click maximizing the borderless window
             if (e.ChangedButton == MouseButton.Left && e.ButtonState == MouseButtonState.Pressed)
             {
-                try
+                if (e.ClickCount == 2)
                 {
-                    this.DragMove();
+                    ToggleMaximize();
                 }
-                catch
+                else
                 {
-                    // Prevent crash if user double clicks or drags invalid component
+                    try
+                    {
+                        this.DragMove();
+                    }
+                    catch
+                    {
+                        // Prevent crash if user double clicks or drags invalid component
+                    }
                 }
             }
         }
@@ -34,6 +46,39 @@ namespace DiagnoseTool
         private void MinimizeButton_Click(object sender, RoutedEventArgs e)
         {
             this.WindowState = WindowState.Minimized;
+        }
+
+        private void MaximizeButton_Click(object sender, RoutedEventArgs e)
+        {
+            ToggleMaximize();
+        }
+
+        private void ToggleMaximize()
+        {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                this.WindowState = WindowState.Normal;
+            }
+            else
+            {
+                this.WindowState = WindowState.Maximized;
+            }
+        }
+
+        private void MainWindow_StateChanged(object sender, System.EventArgs e)
+        {
+            if (this.WindowState == WindowState.Maximized)
+            {
+                WindowBorder.CornerRadius = new CornerRadius(0);
+                WindowBorder.BorderThickness = new Thickness(0);
+                MaximizePath.Data = System.Windows.Media.Geometry.Parse("M 6 8 H 14 V 14 H 6 Z M 8 8 V 6 H 16 V 12 H 14");
+            }
+            else
+            {
+                WindowBorder.CornerRadius = new CornerRadius(12);
+                WindowBorder.BorderThickness = new Thickness(1.5);
+                MaximizePath.Data = System.Windows.Media.Geometry.Parse("M 4 4 H 14 V 14 H 4 Z");
+            }
         }
 
         private void CloseButton_Click(object sender, RoutedEventArgs e)

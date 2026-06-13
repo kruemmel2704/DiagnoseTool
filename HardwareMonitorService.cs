@@ -21,21 +21,28 @@ namespace DiagnoseTool
     public class HardwareDiagnostics
     {
         public string CpuName { get; set; } = "AMD / Intel Processor";
-        public float CpuAverageLoad { get; set; }
-        public float CpuAverageTemp { get; set; }
-        public float CpuClockSpeed { get; set; }
+        public float? CpuAverageLoad { get; set; }
+        public float? CpuAverageTemp { get; set; }
+        public float? CpuClockSpeed { get; set; }
         public List<CpuCoreInfo> CpuCores { get; set; } = new List<CpuCoreInfo>();
 
-        public string GpuName { get; set; } = "None / Intel Integrated";
-        public float GpuLoad { get; set; }
-        public float GpuTemp { get; set; }
-        public float GpuVramUsage { get; set; }
+        public string GpuName { get; set; } = "Keine dedizierte Grafikkarte / Integriert";
+        public float? GpuLoad { get; set; }
+        public float? GpuTemp { get; set; }
+        public float? GpuVramUsage { get; set; }
 
         public float RamUsedGb { get; set; }
         public float RamTotalGb { get; set; }
         public float RamPercent { get; set; }
 
-        public string CpuClockDisplay => CpuClockSpeed > 0 ? $"{CpuClockSpeed / 1000.0:F2} GHz" : "-- GHz";
+        public string CpuClockDisplay => CpuClockSpeed.HasValue && CpuClockSpeed.Value > 0 ? $"{CpuClockSpeed.Value / 1000.0:F2} GHz" : "-- GHz";
+        public string CpuAverageLoadDisplay => CpuAverageLoad.HasValue ? $"{CpuAverageLoad.Value:F1} %" : "-- %";
+        public string CpuAverageTempDisplay => CpuAverageTemp.HasValue ? $"{CpuAverageTemp.Value:F1} °C" : "-- °C";
+        
+        public string GpuLoadDisplay => GpuLoad.HasValue ? $"{GpuLoad.Value:F1} %" : "-- %";
+        public string GpuTempDisplay => GpuTemp.HasValue ? $"{GpuTemp.Value:F1} °C" : "-- °C";
+        public string GpuVramUsageDisplay => GpuVramUsage.HasValue ? $"{GpuVramUsage.Value:F1} %" : "-- %";
+
         public string RamUsageDisplay => RamTotalGb > 0 ? $"{RamUsedGb:F1} / {RamTotalGb:F1} GB" : "-- GB";
     }
 
@@ -109,7 +116,7 @@ namespace DiagnoseTool
 
                                 if (isPackageTemp)
                                 {
-                                    diag.CpuAverageTemp = sensor.Value ?? 0;
+                                    diag.CpuAverageTemp = sensor.Value;
                                 }
 
                                 if (isCoreOrCcdTemp)
@@ -129,7 +136,7 @@ namespace DiagnoseTool
                             {
                                 if (sensor.Name.Contains("Total"))
                                 {
-                                    diag.CpuAverageLoad = sensor.Value ?? 0;
+                                    diag.CpuAverageLoad = sensor.Value;
                                 }
                                 else if (sensor.Name.Contains("Core") || sensor.Name.Contains("CPU Core"))
                                 {
@@ -150,7 +157,7 @@ namespace DiagnoseTool
                             }
                         }
 
-                        if (tempCount > 0 && diag.CpuAverageTemp == 0)
+                        if (tempCount > 0 && (!diag.CpuAverageTemp.HasValue || diag.CpuAverageTemp.Value == 0))
                         {
                             diag.CpuAverageTemp = totalTemp / tempCount;
                         }
@@ -173,14 +180,14 @@ namespace DiagnoseTool
                             if (sensor.SensorType == SensorType.Temperature)
                             {
                                 if (sensor.Name.Contains("Core") || sensor.Name.Contains("GPU"))
-                                    diag.GpuTemp = sensor.Value ?? 0;
+                                    diag.GpuTemp = sensor.Value;
                             }
                             else if (sensor.SensorType == SensorType.Load)
                             {
                                 if (sensor.Name.Contains("Core") || sensor.Name.Contains("GPU"))
-                                    diag.GpuLoad = sensor.Value ?? 0;
+                                    diag.GpuLoad = sensor.Value;
                                 else if (sensor.Name.Contains("Memory") || sensor.Name.Contains("VRAM"))
-                                    diag.GpuVramUsage = sensor.Value ?? 0;
+                                    diag.GpuVramUsage = sensor.Value;
                             }
                         }
                     }

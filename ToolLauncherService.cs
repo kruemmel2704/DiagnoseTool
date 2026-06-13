@@ -253,13 +253,47 @@ namespace DiagnoseTool
             return null;
         }
 
+        private string GetConfigFilePath()
+        {
+            string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigFileName);
+            try
+            {
+                if (File.Exists(localPath))
+                {
+                    using (var fs = File.OpenWrite(localPath)) { }
+                    return localPath;
+                }
+                else
+                {
+                    string testFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "write_test.tmp");
+                    File.WriteAllText(testFile, "test");
+                    File.Delete(testFile);
+                    return localPath;
+                }
+            }
+            catch
+            {
+                string appDataFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "DiagnoseTool");
+                try
+                {
+                    if (!Directory.Exists(appDataFolder))
+                    {
+                        Directory.CreateDirectory(appDataFolder);
+                    }
+                }
+                catch { }
+                return Path.Combine(appDataFolder, ConfigFileName);
+            }
+        }
+
         private void LoadManualPaths()
         {
             try
             {
-                if (File.Exists(ConfigFileName))
+                string configPath = GetConfigFilePath();
+                if (File.Exists(configPath))
                 {
-                    var lines = File.ReadAllLines(ConfigFileName);
+                    var lines = File.ReadAllLines(configPath);
                     foreach (var line in lines)
                     {
                         var parts = line.Split(new[] { '=' }, 2);
@@ -282,8 +316,9 @@ namespace DiagnoseTool
         {
             try
             {
+                string configPath = GetConfigFilePath();
                 var lines = _manualPaths.Select(kvp => $"{kvp.Key}={kvp.Value}");
-                File.WriteAllLines(ConfigFileName, lines);
+                File.WriteAllLines(configPath, lines);
             }
             catch { }
         }

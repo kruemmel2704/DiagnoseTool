@@ -114,23 +114,43 @@ namespace DiagnoseTool
             gfx.DrawString("Max. Temp.", fontBodyBold, new XSolidBrush(colorDark), 470, tableY + 14);
 
             // Calculate Metrics
-            float avgCpuLoad = dataPoints.Count > 0 ? dataPoints.Average(p => p.CpuCpuLoad) : 0;
-            float maxCpuLoad = dataPoints.Count > 0 ? dataPoints.Max(p => p.CpuCpuLoad) : 0;
-            float avgCpuTemp = dataPoints.Count > 0 ? dataPoints.Average(p => p.CpuCpuTemp) : 0;
-            float maxCpuTemp = dataPoints.Count > 0 ? dataPoints.Max(p => p.CpuCpuTemp) : 0;
+            var cpuLoads = dataPoints.Where(p => p.CpuCpuLoad.HasValue).Select(p => p.CpuCpuLoad.Value).ToList();
+            float? avgCpuLoad = cpuLoads.Count > 0 ? cpuLoads.Average() : (float?)null;
+            float? maxCpuLoad = cpuLoads.Count > 0 ? cpuLoads.Max() : (float?)null;
 
-            float avgGpuLoad = dataPoints.Count > 0 ? dataPoints.Average(p => p.GpuGpuLoad) : 0;
-            float maxGpuLoad = dataPoints.Count > 0 ? dataPoints.Max(p => p.GpuGpuLoad) : 0;
-            float avgGpuTemp = dataPoints.Count > 0 ? dataPoints.Average(p => p.GpuGpuTemp) : 0;
-            float maxGpuTemp = dataPoints.Count > 0 ? dataPoints.Max(p => p.GpuGpuTemp) : 0;
+            var cpuTemps = dataPoints.Where(p => p.CpuCpuTemp.HasValue && p.CpuCpuTemp.Value > 0).Select(p => p.CpuCpuTemp.Value).ToList();
+            float? avgCpuTemp = cpuTemps.Count > 0 ? cpuTemps.Average() : (float?)null;
+            float? maxCpuTemp = cpuTemps.Count > 0 ? cpuTemps.Max() : (float?)null;
 
-            float avgRamPercent = dataPoints.Count > 0 ? dataPoints.Average(p => p.RamPercent) : 0;
-            float maxRamPercent = dataPoints.Count > 0 ? dataPoints.Max(p => p.RamPercent) : 0;
+            var gpuLoads = dataPoints.Where(p => p.GpuGpuLoad.HasValue).Select(p => p.GpuGpuLoad.Value).ToList();
+            float? avgGpuLoad = gpuLoads.Count > 0 ? (gpuName.Contains("Keine") ? (float?)null : gpuLoads.Average()) : (float?)null;
+            float? maxGpuLoad = gpuLoads.Count > 0 ? (gpuName.Contains("Keine") ? (float?)null : gpuLoads.Max()) : (float?)null;
+
+            var gpuTemps = dataPoints.Where(p => p.GpuGpuTemp.HasValue && p.GpuGpuTemp.Value > 0).Select(p => p.GpuGpuTemp.Value).ToList();
+            float? avgGpuTemp = gpuTemps.Count > 0 ? (gpuName.Contains("Keine") ? (float?)null : gpuTemps.Average()) : (float?)null;
+            float? maxGpuTemp = gpuTemps.Count > 0 ? (gpuName.Contains("Keine") ? (float?)null : gpuTemps.Max()) : (float?)null;
+
+            var ramPercentList = dataPoints.Where(p => p.RamPercent.HasValue).Select(p => p.RamPercent.Value).ToList();
+            float? avgRamPercent = ramPercentList.Count > 0 ? ramPercentList.Average() : (float?)null;
+            float? maxRamPercent = ramPercentList.Count > 0 ? ramPercentList.Max() : (float?)null;
+
+            string cpuAvgLoadStr = avgCpuLoad.HasValue ? $"{avgCpuLoad.Value:F1} %" : "--";
+            string cpuMaxLoadStr = maxCpuLoad.HasValue ? $"{maxCpuLoad.Value:F1} %" : "--";
+            string cpuAvgTempStr = avgCpuTemp.HasValue ? $"{avgCpuTemp.Value:F1} °C" : "--";
+            string cpuMaxTempStr = maxCpuTemp.HasValue ? $"{maxCpuTemp.Value:F1} °C" : "--";
+
+            string gpuAvgLoadStr = avgGpuLoad.HasValue ? $"{avgGpuLoad.Value:F1} %" : "--";
+            string gpuMaxLoadStr = maxGpuLoad.HasValue ? $"{maxGpuLoad.Value:F1} %" : "--";
+            string gpuAvgTempStr = avgGpuTemp.HasValue ? $"{avgGpuTemp.Value:F1} °C" : "--";
+            string gpuMaxTempStr = maxGpuTemp.HasValue ? $"{maxGpuTemp.Value:F1} °C" : "--";
+
+            string ramAvgPercentStr = avgRamPercent.HasValue ? $"{avgRamPercent.Value:F1} %" : "--";
+            string ramMaxPercentStr = maxRamPercent.HasValue ? $"{maxRamPercent.Value:F1} %" : "--";
 
             // Draw Rows
-            DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Prozessor (CPU)", $"{avgCpuLoad:F1} %", $"{maxCpuLoad:F1} %", $"{avgCpuTemp:F1} °C", $"{maxCpuTemp:F1} °C", tableY + rowHeight, rowHeight);
-            DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Grafikkarte (GPU)", $"{avgGpuLoad:F1} %", $"{maxGpuLoad:F1} %", $"{avgGpuTemp:F1} °C", $"{maxGpuTemp:F1} °C", tableY + (rowHeight * 2), rowHeight);
-            DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Arbeitsspeicher (RAM)", $"{avgRamPercent:F1} %", $"{maxRamPercent:F1} %", "--", "--", tableY + (rowHeight * 3), rowHeight);
+            DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Prozessor (CPU)", cpuAvgLoadStr, cpuMaxLoadStr, cpuAvgTempStr, cpuMaxTempStr, tableY + rowHeight, rowHeight);
+            DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Grafikkarte (GPU)", gpuAvgLoadStr, gpuMaxLoadStr, gpuAvgTempStr, gpuMaxTempStr, tableY + (rowHeight * 2), rowHeight);
+            DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Arbeitsspeicher (RAM)", ramAvgPercentStr, ramMaxPercentStr, "--", "--", tableY + (rowHeight * 3), rowHeight);
 
             // --- 4. Section: Messwertverlauf (Timeline Table) ---
             gfx.DrawString("ZEITLICHER VERLAUF DER MESSWERTE", fontHeading, new XSolidBrush(colorDark), 40, 360);
@@ -187,19 +207,25 @@ namespace DiagnoseTool
 
                 var timeStr = point.Timestamp.ToString("HH:mm:ss");
                 gfx.DrawString(timeStr, fontBody, new XSolidBrush(colorDark), 50, currentY + 14);
-                gfx.DrawString($"{point.CpuCpuLoad:F1} %", fontBody, new XSolidBrush(colorDark), 150, currentY + 14);
+                
+                string cpuLoadStr = point.CpuCpuLoad.HasValue ? $"{point.CpuCpuLoad.Value:F1} %" : "--";
+                gfx.DrawString(cpuLoadStr, fontBody, new XSolidBrush(colorDark), 150, currentY + 14);
                 
                 // CPU Temp Color alert
-                var cpuBrush = new XSolidBrush(point.CpuCpuTemp > 80 ? XColor.FromArgb(239, 68, 68) : (point.CpuCpuTemp > 65 ? XColor.FromArgb(245, 158, 11) : colorDark));
-                gfx.DrawString($"{point.CpuCpuTemp:F1} °C", fontBody, cpuBrush, 230, currentY + 14);
+                string cpuTempStr = point.CpuCpuTemp.HasValue && point.CpuCpuTemp.Value > 0 ? $"{point.CpuCpuTemp.Value:F1} °C" : "--";
+                var cpuBrush = new XSolidBrush(point.CpuCpuTemp.HasValue && point.CpuCpuTemp.Value > 80 ? XColor.FromArgb(239, 68, 68) : (point.CpuCpuTemp.HasValue && point.CpuCpuTemp.Value > 65 ? XColor.FromArgb(245, 158, 11) : colorDark));
+                gfx.DrawString(cpuTempStr, fontBody, cpuBrush, 230, currentY + 14);
                 
-                gfx.DrawString($"{point.GpuGpuLoad:F1} %", fontBody, new XSolidBrush(colorDark), 320, currentY + 14);
+                string gpuLoadStr = point.GpuGpuLoad.HasValue && !gpuName.Contains("Keine") ? $"{point.GpuGpuLoad.Value:F1} %" : "--";
+                gfx.DrawString(gpuLoadStr, fontBody, new XSolidBrush(colorDark), 320, currentY + 14);
                 
                 // GPU Temp Color alert
-                var gpuBrush = new XSolidBrush(point.GpuGpuTemp > 83 ? XColor.FromArgb(239, 68, 68) : (point.GpuGpuTemp > 75 ? XColor.FromArgb(245, 158, 11) : colorDark));
-                gfx.DrawString($"{point.GpuGpuTemp:F1} °C", fontBody, gpuBrush, 400, currentY + 14);
+                string gpuTempStr = point.GpuGpuTemp.HasValue && point.GpuGpuTemp.Value > 0 && !gpuName.Contains("Keine") ? $"{point.GpuGpuTemp.Value:F1} °C" : "--";
+                var gpuBrush = new XSolidBrush(point.GpuGpuTemp.HasValue && point.GpuGpuTemp.Value > 83 ? XColor.FromArgb(239, 68, 68) : (point.GpuGpuTemp.HasValue && point.GpuGpuTemp.Value > 75 ? XColor.FromArgb(245, 158, 11) : colorDark));
+                gfx.DrawString(gpuTempStr, fontBody, gpuBrush, 400, currentY + 14);
                 
-                gfx.DrawString($"{point.RamPercent:F1} %", fontBody, new XSolidBrush(colorDark), 480, currentY + 14);
+                string ramPercentStr = point.RamPercent.HasValue ? $"{point.RamPercent.Value:F1} %" : "--";
+                gfx.DrawString(ramPercentStr, fontBody, new XSolidBrush(colorDark), 480, currentY + 14);
 
                 currentY += rowHeight;
                 isAltRow = !isAltRow;

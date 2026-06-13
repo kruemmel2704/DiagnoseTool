@@ -11,13 +11,14 @@
         AllowsTransparency="True"
         Background="Transparent"
         WindowStartupLocation="CenterScreen"
-        MouseDown="Window_MouseDown">
+        MouseDown="Window_MouseDown"
+        ResizeMode="CanResizeWithGrip">
 
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
     </Window.Resources>
 
-    <Border CornerRadius="12" Background="{StaticResource BrushBgMain}" BorderBrush="#252A3C" BorderThickness="1.5" ClipToBounds="True">
+    <Border x:Name="WindowBorder" CornerRadius="12" Background="{StaticResource BrushBgMain}" BorderBrush="#252A3C" BorderThickness="1.5" ClipToBounds="True">
         <Grid>
             <Grid.ColumnDefinitions>
                 <!-- Sidebar Column -->
@@ -122,7 +123,7 @@
                                    FontSize="11" 
                                    FontWeight="Medium" 
                                    Foreground="{StaticResource BrushTextSecondary}" />
-                        <TextBlock Text="v1.0.6 | Admin Privileges Active" 
+                        <TextBlock Text="v1.0.7 | Admin Privileges Active" 
                                    HorizontalAlignment="Center" 
                                    FontSize="9" 
                                    Foreground="{StaticResource BrushSuccess}" 
@@ -151,7 +152,7 @@
                         <TextBlock Text="Real-time monitoring and fast execution of USB stress-testing utilities." Style="{StaticResource TextSubheader}" Margin="0,4,0,0"/>
                     </StackPanel>
 
-                    <!-- Minimize / Close Buttons -->
+                    <!-- Minimize / Maximize / Close Buttons -->
                     <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,-6,0,0">
                         <Button Click="MinimizeButton_Click" 
                                 Width="32" Height="32" 
@@ -176,6 +177,32 @@
                                 </Style>
                             </Button.Style>
                             <Path Data="M 6 15 L 18 15 Z" Stroke="{StaticResource BrushTextPrimary}" StrokeThickness="2" Width="12" Height="12" Stretch="Fill"/>
+                        </Button>
+
+                        <Button x:Name="BtnMaximize" Click="MaximizeButton_Click" 
+                                Width="32" Height="32" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Cursor="Hand"
+                                Foreground="{StaticResource BrushTextSecondary}"
+                                Margin="6,0,0,0">
+                            <Button.Template>
+                                <ControlTemplate TargetType="Button">
+                                    <Border Background="{TemplateBinding Background}" CornerRadius="16">
+                                        <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                                    </Border>
+                                </ControlTemplate>
+                            </Button.Template>
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Style.Triggers>
+                                        <Trigger Property="IsMouseOver" Value="True">
+                                            <Setter Property="Background" Value="#1C2130"/>
+                                        </Trigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                            <Path x:Name="MaximizePath" Data="M 4 4 H 14 V 14 H 4 Z" Stroke="{StaticResource BrushTextPrimary}" StrokeThickness="2" Width="10" Height="10" Stretch="Fill"/>
                         </Button>
 
                         <Button Click="CloseButton_Click" 
@@ -329,8 +356,7 @@
                                         </Grid>
                                     </StackPanel>
                                 </Border>
-
-                                <!-- CPU Overview Card -->
+                                <!-- CPU Overview Card -->
                                 <Border Style="{StaticResource CardStyle}">
                                     <StackPanel>
                                         <Grid>
@@ -341,68 +367,68 @@
                                         <!-- CPU Usage -->
                                         <TextBlock Text="Processor Load" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,12,0,4"/>
                                         <Grid>
-                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.CpuAverageLoad}" Maximum="100"/>
+                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.CpuAverageLoad, TargetNullValue=0}" Maximum="100"/>
                                         </Grid>
                                         <Grid Margin="0,4,0,12">
                                             <TextBlock Text="Overall Usage" Style="{StaticResource TextMuted}"/>
-                                            <TextBlock Text="{Binding Diagnostics.CpuAverageLoad, StringFormat={}{0:F1} %}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{Binding Diagnostics.CpuAverageLoadDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
                                         </Grid>
-
+ 
                                         <!-- CPU Temp -->
                                         <TextBlock Text="Package Temperature" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,4"/>
                                         <Grid>
-                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.CpuAverageTemp}" Maximum="100" Foreground="{StaticResource BrushWarning}"/>
+                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.CpuAverageTemp, TargetNullValue=0}" Maximum="100" Foreground="{StaticResource BrushWarning}"/>
                                         </Grid>
                                         <Grid Margin="0,4,0,0">
                                             <TextBlock Text="Overall Temp" Style="{StaticResource TextMuted}"/>
-                                            <TextBlock Text="{Binding Diagnostics.CpuAverageTemp, StringFormat={}{0:F1} °C}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{Binding Diagnostics.CpuAverageTempDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
                                         </Grid>
                                     </StackPanel>
                                 </Border>
-
+ 
                                 <!-- GPU Overview Card -->
                                 <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
                                     <StackPanel>
                                         <TextBlock Text="GPU BENCHMARK DATA" FontWeight="Bold" Foreground="{StaticResource BrushAccentPurple}" FontSize="12" Margin="0,0,0,10"/>
                                         <TextBlock Text="{Binding Diagnostics.GpuName}" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,0,0,10"/>
-
+ 
                                         <!-- GPU Load -->
                                         <TextBlock Text="Graphics Core Load" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,4"/>
                                         <Grid>
-                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.GpuLoad}" Maximum="100" Foreground="{StaticResource BrushAccentPurple}"/>
+                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.GpuLoad, TargetNullValue=0}" Maximum="100" Foreground="{StaticResource BrushAccentPurple}"/>
                                         </Grid>
                                         <Grid Margin="0,4,0,12">
                                             <TextBlock Text="Core Activity" Style="{StaticResource TextMuted}"/>
-                                            <TextBlock Text="{Binding Diagnostics.GpuLoad, StringFormat={}{0:F1} %}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuLoadDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
                                         </Grid>
-
+ 
                                         <!-- GPU Temp -->
                                         <TextBlock Text="Graphics Core Temperature" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,4"/>
                                         <Grid>
-                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.GpuTemp}" Maximum="100" Foreground="{StaticResource BrushDanger}"/>
+                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.GpuTemp, TargetNullValue=0}" Maximum="100" Foreground="{StaticResource BrushDanger}"/>
                                         </Grid>
                                         <Grid Margin="0,4,0,12">
                                             <TextBlock Text="GPU Temperature" Style="{StaticResource TextMuted}"/>
-                                            <TextBlock Text="{Binding Diagnostics.GpuTemp, StringFormat={}{0:F1} °C}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuTempDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
                                         </Grid>
-
+ 
                                         <!-- GPU VRAM -->
                                         <TextBlock Text="VRAM Load" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,4,0,4"/>
                                         <Grid>
-                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.GpuVramUsage}" Maximum="100"/>
+                                            <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.GpuVramUsage, TargetNullValue=0}" Maximum="100"/>
                                         </Grid>
                                         <Grid Margin="0,4,0,0">
                                             <TextBlock Text="VRAM Usage" Style="{StaticResource TextMuted}"/>
-                                            <TextBlock Text="{Binding Diagnostics.GpuVramUsage, StringFormat={}{0:F1} %}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuVramUsageDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
                                         </Grid>
                                     </StackPanel>
                                 </Border>
-
+ 
                                 <!-- Memory Overview Card -->
                                 <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
                                     <StackPanel>
                                         <TextBlock Text="SYSTEM MEMORY (RAM)" FontWeight="Bold" Foreground="{StaticResource BrushTextSecondary}" FontSize="12" Margin="0,0,0,12"/>
-
+ 
                                         <TextBlock Text="Physical RAM Load" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,0,4"/>
                                         <Grid>
                                             <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.RamPercent}" Maximum="100" Foreground="{StaticResource BrushSuccess}"/>
@@ -433,13 +459,13 @@
                                     <ItemsControl ItemsSource="{Binding Diagnostics.CpuCores}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
-                                                <UniformGrid Columns="3" VerticalAlignment="Top"/>
+                                                <WrapPanel HorizontalAlignment="Center"/>
                                             </ItemsPanelTemplate>
                                         </ItemsControl.ItemsPanel>
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
                                                 <!-- Border color dynamically bound to TemperatureColor -->
-                                                <Border BorderBrush="{Binding TemperatureColor}" BorderThickness="1.5" Background="#0C0E14" CornerRadius="8" Padding="12" Margin="5" SnapsToDevicePixels="True">
+                                                <Border Width="112" Height="78" BorderBrush="{Binding TemperatureColor}" BorderThickness="1.5" Background="#0C0E14" CornerRadius="8" Padding="10,6" Margin="4" SnapsToDevicePixels="True">
                                                     <Grid>
                                                         <Grid.RowDefinitions>
                                                             <RowDefinition Height="Auto"/>
@@ -447,10 +473,10 @@
                                                             <RowDefinition Height="Auto"/>
                                                         </Grid.RowDefinitions>
                                                         
-                                                        <TextBlock Text="{Binding Name}" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Center"/>
+                                                        <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
                                                         
                                                         <!-- Temperature displays in bound color -->
-                                                        <TextBlock Grid.Row="1" Text="{Binding TemperatureDisplay}" FontSize="18" FontWeight="Bold" Foreground="{Binding TemperatureColor}" HorizontalAlignment="Center" Margin="0,6,0,4"/>
+                                                        <TextBlock Grid.Row="1" Text="{Binding TemperatureDisplay}" FontSize="16" FontWeight="Bold" Foreground="{Binding TemperatureColor}" HorizontalAlignment="Center" Margin="0,2,0,2"/>
                                                         
                                                         <Grid Grid.Row="2">
                                                             <Grid.ColumnDefinitions>
@@ -458,9 +484,9 @@
                                                                 <ColumnDefinition Width="*" />
                                                                 <ColumnDefinition Width="Auto" />
                                                             </Grid.ColumnDefinitions>
-                                                            <TextBlock Grid.Column="0" Text="Load:" FontSize="10" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center"/>
-                                                            <ProgressBar Grid.Column="1" Style="{StaticResource ModernProgressBar}" Value="{Binding Load, TargetNullValue=0}" Maximum="100" Height="4" Margin="6,0" VerticalAlignment="Center"/>
-                                                            <TextBlock Grid.Column="2" Text="{Binding LoadDisplay}" FontSize="10" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="0" Text="L:" FontSize="9" Foreground="{StaticResource BrushTextMuted}" VerticalAlignment="Center"/>
+                                                            <ProgressBar Grid.Column="1" Style="{StaticResource ModernProgressBar}" Value="{Binding Load, TargetNullValue=0}" Maximum="100" Height="4" Margin="4,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding LoadDisplay}" FontSize="9" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" VerticalAlignment="Center"/>
                                                         </Grid>
                                                     </Grid>
                                                 </Border>
