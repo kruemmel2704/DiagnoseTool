@@ -459,6 +459,7 @@
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
                                     <RowDefinition Height="*"/>
                                 </Grid.RowDefinitions>
 
@@ -495,16 +496,100 @@
                                                        Foreground="#EF4444" 
                                                        FontSize="12" 
                                                        Margin="0,0,0,4"/>
-                                            <TextBlock Text="Die Temperaturen konnten nicht ausgelesen werden. Mögliche Ursachen:" 
+                                            <TextBlock Text="Die Temperaturen konnten nicht ausgelesen werden. Ursache:" 
                                                        Foreground="{StaticResource BrushTextSecondary}" 
                                                        FontSize="11" 
                                                        TextWrapping="Wrap" 
                                                        Margin="0,0,0,4"/>
-                                            <TextBlock Text="• Windows Kernisolierung (Speicherintegrität) blockiert den WinRing0x64.sys Treiber." 
+                                            <TextBlock Text="• Windows Kernisolierung (Speicherintegrität) blockiert den standardmäßigen Treiber." 
                                                        Foreground="{StaticResource BrushTextSecondary}" 
                                                        FontSize="11" 
-                                                       TextWrapping="Wrap"/>
-                                            <TextBlock Text="• Das Programm wurde nicht mit Administratorrechten gestartet." 
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,8"/>
+                                            
+                                            <TextBlock Text="Empfohlene Lösung (Kernisolierung aktiv lassen):" 
+                                                       FontWeight="Bold"
+                                                       Foreground="{StaticResource BrushTextPrimary}" 
+                                                       FontSize="11" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="Nutze HWiNFO Portable als treiberlosen Fallback! Starte HWiNFO und aktiviere in dessen Einstellungen (Sensoren -> Zahnrad -> HWiNFO Gadget) die Option 'Enable reporting to Gadget' sowie 'Report value in Gadget' für die CPU/GPU-Temperaturen." 
+                                                       Foreground="{StaticResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,10"/>
+
+                                            <!-- Button to start HWiNFO if found -->
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="HWiNFO64 starten" 
+                                                        Command="{Binding StartHWiNFOCommand}"
+                                                        FontSize="11"
+                                                        Padding="12,5"
+                                                        Height="28"
+                                                        Cursor="Hand">
+                                                    <Button.Style>
+                                                        <Style TargetType="Button" BasedOn="{StaticResource ModernButton}">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsHWiNFOPortableFound}" Value="True">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Button.Style>
+                                                </Button>
+                                                
+                                                <TextBlock Text="Hinweis: Kopiere HWiNFO64.exe in den 'Tools'-Ordner für Direktstart." 
+                                                           Foreground="{StaticResource BrushTextMuted}" 
+                                                           FontSize="10"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,4,0,0">
+                                                    <TextBlock.Style>
+                                                        <Style TargetType="TextBlock">
+                                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                                            <Style.Triggers>
+                                                                <DataTrigger Binding="{Binding IsHWiNFOPortableFound}" Value="False">
+                                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                                </DataTrigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </TextBlock.Style>
+                                                </TextBlock>
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Info panel for HWiNFO Fallback Active -->
+                                <Border Grid.Row="3" 
+                                        Background="#2610B981" 
+                                        BorderBrush="#10B981" 
+                                        BorderThickness="1" 
+                                        CornerRadius="6" 
+                                        Padding="12" 
+                                        Margin="0,0,0,12"
+                                        Visibility="{Binding IsHWiNFOFallbackActive, Converter={StaticResource BoolToVis}}">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        
+                                        <!-- Info/Success Icon (Check Circle or Info) -->
+                                        <Path Grid.Column="0" 
+                                              Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,8H13V10H11V8M11,12H13V18H11V12Z" 
+                                              Fill="#10B981" 
+                                              Width="20" Height="20" 
+                                              Stretch="Uniform" 
+                                              VerticalAlignment="Top" 
+                                              Margin="0,2,10,0"/>
+                                              
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="HWiNFO Fallback Aktiv" 
+                                                       FontWeight="Bold" 
+                                                       Foreground="#10B981" 
+                                                       FontSize="12" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="Temperaturen werden sicher über das im Hintergrund laufende HWiNFO64 bezogen. Es ist kein Deaktivieren der Windows-Kernisolierung nötig." 
                                                        Foreground="{StaticResource BrushTextSecondary}" 
                                                        FontSize="11" 
                                                        TextWrapping="Wrap"/>
@@ -513,7 +598,7 @@
                                 </Border>
 
                                 <!-- Scrollable grid of CPU Cores -->
-                                <ScrollViewer Grid.Row="3" VerticalScrollBarVisibility="Auto">
+                                <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
                                     <ItemsControl ItemsSource="{Binding Diagnostics.CpuCores}">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -849,6 +934,50 @@
                                             <TextBlock Grid.Column="1" Text="&lt; 90 %" Foreground="{StaticResource BrushSuccess}"/>
                                             <TextBlock Grid.Column="2" Text="System performance degrades heavily if RAM reaches 95% due to pagefile swapping." Style="{StaticResource TextMuted}"/>
                                         </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Windows Kernisolierung (Core Isolation) Fallback Setup" FontSize="15" FontWeight="Bold" Foreground="{StaticResource BrushAccentCyan}" Margin="0,0,0,10"/>
+                                        <TextBlock Text="Wenn Windows Kernisolierung (Speicherintegrität) aktiv ist, blockiert das System den direkten Hardware-Treiber dieses Tools. Du kannst das umgehen, indem du HWiNFO64 Portable als treiberlosen Datenlieferanten einbindest:" Style="{StaticResource TextSubheader}" TextWrapping="Wrap" Margin="0,0,0,15"/>
+                                        
+                                        <TextBlock Text="Schritt-für-Schritt-Anleitung:" FontWeight="SemiBold" FontSize="13" Foreground="{StaticResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                                        <TextBlock Text="1. Lade dir HWiNFO Portable herunter (kostenlos auf hwinfo.com)." Foreground="{StaticResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="2. Kopiere die Datei HWiNFO64.exe in den 'Tools'-Ordner deiner DiagnoseTool-Ausführung." Foreground="{StaticResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="3. Starte HWiNFO über den Button 'HWiNFO64 starten' im Dashboard oder führe es manuell aus." Foreground="{StaticResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="4. Aktiviere den Registry-Gadget-Export in HWiNFO:" Foreground="{StaticResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <BulletDecorator Margin="30,0,0,4">
+                                            <BulletDecorator.Bullet>
+                                                <Ellipse Width="4" Height="4" Fill="{StaticResource BrushAccentCyan}"/>
+                                            </BulletDecorator.Bullet>
+                                            <TextBlock Text=" Öffne das HWiNFO Sensoren-Fenster." Foreground="{StaticResource BrushTextSecondary}" Margin="6,0,0,0"/>
+                                        </BulletDecorator>
+                                        <BulletDecorator Margin="30,0,0,4">
+                                            <BulletDecorator.Bullet>
+                                                <Ellipse Width="4" Height="4" Fill="{StaticResource BrushAccentCyan}"/>
+                                            </BulletDecorator.Bullet>
+                                            <TextBlock Text=" Klicke unten rechts auf das Zahnrad-Symbol (Configure Sensors)." Foreground="{StaticResource BrushTextSecondary}" Margin="6,0,0,0"/>
+                                        </BulletDecorator>
+                                        <BulletDecorator Margin="30,0,0,4">
+                                            <BulletDecorator.Bullet>
+                                                <Ellipse Width="4" Height="4" Fill="{StaticResource BrushAccentCyan}"/>
+                                            </BulletDecorator.Bullet>
+                                            <TextBlock Text=" Gehe auf den Tab 'HWiNFO Gadget' (ganz rechts)." Foreground="{StaticResource BrushTextSecondary}" Margin="6,0,0,0"/>
+                                        </BulletDecorator>
+                                        <BulletDecorator Margin="30,0,0,4">
+                                            <BulletDecorator.Bullet>
+                                                <Ellipse Width="4" Height="4" Fill="{StaticResource BrushAccentCyan}"/>
+                                            </BulletDecorator.Bullet>
+                                            <TextBlock Text=" Setze den Haken bei 'Enable reporting to Gadget'." Foreground="{StaticResource BrushTextSecondary}" Margin="6,0,0,0"/>
+                                        </BulletDecorator>
+                                        <BulletDecorator Margin="30,0,0,4">
+                                            <BulletDecorator.Bullet>
+                                                <Ellipse Width="4" Height="4" Fill="{StaticResource BrushAccentCyan}"/>
+                                            </BulletDecorator.Bullet>
+                                            <TextBlock Text=" Wähle die gewünschten Zeilen aus (z.B. 'CPU Die' oder 'GPU Temperature') und hake jeweils 'Report value in Gadget' an." Foreground="{StaticResource BrushTextSecondary}" Margin="6,0,0,0"/>
+                                        </BulletDecorator>
+                                        <TextBlock Text="5. Fertig! Sobald HWiNFO im Hintergrund läuft, liest das DiagnoseTool alle Temperaturen automatisch ein." Foreground="{StaticResource BrushTextSecondary}" Margin="10,4,0,10"/>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
