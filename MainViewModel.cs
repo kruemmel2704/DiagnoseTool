@@ -33,6 +33,7 @@ namespace DiagnoseTool
 
         // Battery health & stress test states
         private BatteryInfo _batteryInfo;
+        private SystemInfo _systemInfo;
         private bool _isBatteryTestRunning = false;
         private TimeSpan _batteryTestRemainingTime;
         private string _batteryTestRemainingDisplay = "30:00";
@@ -69,6 +70,7 @@ namespace DiagnoseTool
             _tools = _launcherService.Tools;
             _currentTime = DateTime.Now.ToString("HH:mm:ss dddd, dd.MM.yyyy");
             _batteryInfo = BatteryService.GetBatteryInfo();
+            _systemInfo = SystemInfoService.GetSystemInfo();
 
             // Automate HWiNFO startup if driver is blocked or GPU temperature is missing, HWiNFO is portable, and not already running
             bool isGpuTempMissing = Diagnostics == null || !Diagnostics.GpuTemp.HasValue || Diagnostics.GpuTemp.Value == 0;
@@ -172,7 +174,7 @@ namespace DiagnoseTool
 
         public RelayCommand StartHWiNFOCommand { get; }
 
-        public string AdminStatusText => IsAdmin ? "v1.0.10 | Admin Privileges Active" : "v1.0.10 | No Admin Privileges (Restricted)";
+        public string AdminStatusText => IsAdmin ? "v1.0.11 | Admin Privileges Active" : "v1.0.11 | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
@@ -201,6 +203,12 @@ namespace DiagnoseTool
         {
             get => _batteryInfo;
             set => SetProperty(ref _batteryInfo, value);
+        }
+
+        public SystemInfo SystemInfo
+        {
+            get => _systemInfo;
+            set => SetProperty(ref _systemInfo, value);
         }
 
         public bool IsBatteryTestRunning
@@ -504,6 +512,7 @@ namespace DiagnoseTool
                         cpu,
                         gpu,
                         ram,
+                        SystemInfo,
                         _recordingStartTime,
                         DateTime.Now,
                         _recordedData
@@ -660,6 +669,7 @@ namespace DiagnoseTool
                         cpu,
                         gpu,
                         ram,
+                        SystemInfo,
                         BatteryInfo,
                         start,
                         DateTime.Now,

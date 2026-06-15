@@ -19,6 +19,7 @@ namespace DiagnoseTool
             string cpuName,
             string gpuName,
             string ramTotalDisplay,
+            SystemInfo systemInfo,
             DateTime startTime,
             DateTime endTime,
             List<LogDataPoint> dataPoints)
@@ -78,29 +79,32 @@ namespace DiagnoseTool
 
             // --- 2. Section: System- & Aufzeichnungsdaten ---
             // Draw background card
-            var rectSystemBox = new XRect(40, 110, 515, 95);
+            var rectSystemBox = new XRect(40, 110, 515, 130);
             gfx.DrawRectangle(new XSolidBrush(colorLightBg), rectSystemBox);
             gfx.DrawRectangle(new XPen(colorBorder, 1), rectSystemBox);
 
             // Columns layout inside the card
             // Column 1: System Info
             gfx.DrawString("HARDWARE-KONFIGURATION", fontSubHeading, new XSolidBrush(colorPrimary), 52, 128);
-            gfx.DrawString($"Prozessor (CPU):  {cpuName}", fontBody, new XSolidBrush(colorDark), 52, 146);
-            gfx.DrawString($"Grafikkarte (GPU): {gpuName}", fontBody, new XSolidBrush(colorDark), 52, 162);
-            gfx.DrawString($"Arbeitsspeicher:  {ramTotalDisplay}", fontBody, new XSolidBrush(colorDark), 52, 178);
+            gfx.DrawString($"System-Modell:    {systemInfo.FullSystemName}", fontBody, new XSolidBrush(colorDark), 52, 144);
+            gfx.DrawString($"Seriennummer:     {systemInfo.SerialNumber}", fontBody, new XSolidBrush(colorDark), 52, 158);
+            gfx.DrawString($"Prozessor (CPU):  {cpuName}", fontBody, new XSolidBrush(colorDark), 52, 172);
+            gfx.DrawString($"Grafikkarte (GPU): {gpuName}", fontBody, new XSolidBrush(colorDark), 52, 186);
+            gfx.DrawString($"Arbeitsspeicher:  {ramTotalDisplay}", fontBody, new XSolidBrush(colorDark), 52, 200);
+            gfx.DrawString($"Mainboard:        {systemInfo.MotherboardModel}", fontBody, new XSolidBrush(colorDark), 52, 214);
 
             // Column 2: Log Info
             var duration = endTime - startTime;
             gfx.DrawString("AUFZEICHNUNGSDATEN", fontSubHeading, new XSolidBrush(colorPrimary), 320, 128);
-            gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 146);
-            gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 162);
-            gfx.DrawString($"Messdauer:    {duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2} ({dataPoints.Count} Punkte)", fontBody, new XSolidBrush(colorDark), 320, 178);
+            gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 144);
+            gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 158);
+            gfx.DrawString($"Messdauer:    {duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2} ({dataPoints.Count} Punkte)", fontBody, new XSolidBrush(colorDark), 320, 172);
 
             // --- 3. Section: Zusammenfassung (Statistiken) ---
-            gfx.DrawString("ZUSAMMENFASSUNG DER MESSWERTE", fontHeading, new XSolidBrush(colorDark), 40, 230);
+            gfx.DrawString("ZUSAMMENFASSUNG DER MESSWERTE", fontHeading, new XSolidBrush(colorDark), 40, 265);
 
             // Draw Summary Table Header
-            double tableY = 245;
+            double tableY = 280;
             double rowHeight = 22;
             var brushHeader = new XSolidBrush(XColor.FromArgb(241, 245, 249));
             gfx.DrawRectangle(brushHeader, 40, tableY, 515, rowHeight);
@@ -153,10 +157,10 @@ namespace DiagnoseTool
             DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Arbeitsspeicher (RAM)", ramAvgPercentStr, ramMaxPercentStr, "--", "--", tableY + (rowHeight * 3), rowHeight);
 
             // --- 4. Section: Messwertverlauf (Timeline Table) ---
-            gfx.DrawString("ZEITLICHER VERLAUF DER MESSWERTE", fontHeading, new XSolidBrush(colorDark), 40, 360);
+            gfx.DrawString("ZEITLICHER VERLAUF DER MESSWERTE", fontHeading, new XSolidBrush(colorDark), 40, 395);
 
             // Draw History Table Header
-            double histY = 375;
+            double histY = 410;
             gfx.DrawRectangle(brushHeader, 40, histY, 515, rowHeight);
             gfx.DrawRectangle(new XPen(colorBorder, 1), 40, histY, 515, rowHeight);
 
@@ -324,6 +328,7 @@ namespace DiagnoseTool
             string cpuName,
             string gpuName,
             string ramTotalDisplay,
+            SystemInfo systemInfo,
             BatteryInfo batteryInfo,
             DateTime startTime,
             DateTime endTime,
@@ -384,34 +389,37 @@ namespace DiagnoseTool
 
             // --- 2. Section: System- & Batterie-Daten ---
             // Draw background card for static info
-            var rectSystemBox = new XRect(40, 110, 515, 115);
+            var rectSystemBox = new XRect(40, 110, 515, 135);
             gfx.DrawRectangle(new XSolidBrush(colorLightBg), rectSystemBox);
             gfx.DrawRectangle(new XPen(colorBorder, 1), rectSystemBox);
 
             // Columns layout inside the card
             // Column 1: Battery Health Specifications
             gfx.DrawString("BATTERIE-SPEZIFIKATIONEN", fontSubHeading, new XSolidBrush(colorPrimary), 52, 128);
-            gfx.DrawString($"Gesundheitszustand (Health): {batteryInfo.HealthDisplay}", fontBodyBold, new XSolidBrush(colorDark), 52, 144);
-            gfx.DrawString($"Hersteller / Modell:         {batteryInfo.Manufacturer} / {batteryInfo.DeviceName}", fontBody, new XSolidBrush(colorDark), 52, 158);
-            gfx.DrawString($"Design-Kapazität:            {batteryInfo.DesignCapacityDisplay}", fontBody, new XSolidBrush(colorDark), 52, 172);
-            gfx.DrawString($"Volle Ladekapazität:         {batteryInfo.FullChargeCapacityDisplay}", fontBody, new XSolidBrush(colorDark), 52, 186);
-            gfx.DrawString($"Batterie-Chemie:             {batteryInfo.Chemistry}", fontBody, new XSolidBrush(colorDark), 52, 200);
+            gfx.DrawString($"Gesundheitszustand (Health): {batteryInfo.HealthDisplay}", fontBodyBold, new XSolidBrush(colorDark), 52, 142);
+            gfx.DrawString($"Hersteller / Modell:         {batteryInfo.Manufacturer} / {batteryInfo.DeviceName}", fontBody, new XSolidBrush(colorDark), 52, 154);
+            gfx.DrawString($"Design-Kapazität:            {batteryInfo.DesignCapacityDisplay}", fontBody, new XSolidBrush(colorDark), 52, 166);
+            gfx.DrawString($"Volle Ladekapazität:         {batteryInfo.FullChargeCapacityDisplay}", fontBody, new XSolidBrush(colorDark), 52, 178);
+            gfx.DrawString($"Batterie-Chemie:             {batteryInfo.Chemistry}", fontBody, new XSolidBrush(colorDark), 52, 190);
 
             // Column 2: System Specs & Test details
             gfx.DrawString("TEST-INFO & RUNTIME", fontSubHeading, new XSolidBrush(colorPrimary), 320, 128);
-            gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 144);
-            gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 158);
+            gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 142);
+            gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 154);
             
             var testDuration = endTime - startTime;
-            gfx.DrawString($"Testdauer:    {testDuration.Hours:D2}:{testDuration.Minutes:D2}:{testDuration.Seconds:D2}", fontBody, new XSolidBrush(colorDark), 320, 172);
-            gfx.DrawString($"CPU:          {cpuName}", fontBody, new XSolidBrush(colorDark), 320, 186);
-            gfx.DrawString($"Grafikkarte:  {gpuName}", fontBody, new XSolidBrush(colorDark), 320, 200);
+            gfx.DrawString($"Testdauer:    {testDuration.Hours:D2}:{testDuration.Minutes:D2}:{testDuration.Seconds:D2}", fontBody, new XSolidBrush(colorDark), 320, 166);
+            gfx.DrawString($"CPU:          {cpuName}", fontBody, new XSolidBrush(colorDark), 320, 178);
+            gfx.DrawString($"Grafikkarte:  {gpuName}", fontBody, new XSolidBrush(colorDark), 320, 190);
+            gfx.DrawString($"PC Modell:    {systemInfo.FullSystemName}", fontBody, new XSolidBrush(colorDark), 320, 202);
+            gfx.DrawString($"Seriennummer: {systemInfo.SerialNumber}", fontBody, new XSolidBrush(colorDark), 320, 214);
+            gfx.DrawString($"Mainboard:    {systemInfo.MotherboardModel}", fontBody, new XSolidBrush(colorDark), 320, 226);
 
             // --- 3. Section: Zusammenfassung Stresstest ---
-            gfx.DrawString("ZUSAMMENFASSUNG DES STRESSTESTS", fontHeading, new XSolidBrush(colorDark), 40, 250);
+            gfx.DrawString("ZUSAMMENFASSUNG DES STRESSTESTS", fontHeading, new XSolidBrush(colorDark), 40, 260);
 
             // Draw Summary Box
-            var rectSummaryBox = new XRect(40, 262, 515, 60);
+            var rectSummaryBox = new XRect(40, 272, 515, 60);
             gfx.DrawRectangle(new XSolidBrush(XColor.FromArgb(240, 253, 250)), rectSummaryBox); // Light mint green bg
             gfx.DrawRectangle(new XPen(XColor.FromArgb(186, 230, 218), 1), rectSummaryBox);
 
@@ -431,10 +439,10 @@ namespace DiagnoseTool
             gfx.DrawString($"Proj. Restlaufzeit:     ~{runtimeStr} (unter Last)", fontBodyBold, new XSolidBrush(colorDark), 320, 306);
 
             // --- 4. Section: Chronologischer Testverlauf (Timeline Table) ---
-            gfx.DrawString("PROTOKOLL DES TESTVERLAUFS", fontHeading, new XSolidBrush(colorDark), 40, 345);
+            gfx.DrawString("PROTOKOLL DES TESTVERLAUFS", fontHeading, new XSolidBrush(colorDark), 40, 355);
 
             // Draw Table Header
-            double histY = 360;
+            double histY = 370;
             double rowHeight = 18;
             var brushHeader = new XSolidBrush(XColor.FromArgb(241, 245, 249));
             gfx.DrawRectangle(brushHeader, 40, histY, 515, rowHeight);

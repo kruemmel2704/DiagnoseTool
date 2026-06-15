@@ -259,6 +259,33 @@
                         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
                             <StackPanel>
                                 
+                                <!-- System Info Card -->
+                                <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="SYSTEM-INFORMATIONEN" FontWeight="Bold" Foreground="{StaticResource BrushAccentCyan}" FontSize="11" Margin="0,0,0,10"/>
+                                        
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="System-Modell:" Style="{StaticResource TextMuted}"/>
+                                            <TextBlock Text="{Binding SystemInfo.FullSystemName}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                        </Grid>
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Seriennummer:" Style="{StaticResource TextMuted}"/>
+                                            <TextBlock Text="{Binding SystemInfo.SerialNumber}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource BrushAccentCyan}"/>
+                                        </Grid>
+                                        
+                                        <Separator Background="#222636" Margin="0,8"/>
+                                        
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Mainboard-Modell:" Style="{StaticResource TextMuted}"/>
+                                            <TextBlock Text="{Binding SystemInfo.MotherboardModel}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                        </Grid>
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Hersteller:" Style="{StaticResource TextMuted}"/>
+                                            <TextBlock Text="{Binding SystemInfo.MotherboardManufacturer}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
                                 <!-- Werte-Aufzeichnung (PDF-Report) Card -->
                                 <Border Style="{StaticResource CardStyle}" Margin="0,0,0,12">
                                     <StackPanel>
