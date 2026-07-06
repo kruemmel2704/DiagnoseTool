@@ -2,8 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Windows;
-using System.Windows.Threading;
+using Avalonia.Threading;
 using Microsoft.Win32;
 
 namespace DiagnoseTool
@@ -362,21 +361,35 @@ namespace DiagnoseTool
             }
         }
 
-        private void ExecuteBrowse(string key)
+        private async void ExecuteBrowse(string key)
         {
-            var openFileDialog = new OpenFileDialog
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             {
-                Filter = "Executables (*.exe)|*.exe|All Files (*.*)|*.*",
-                Title = $"Select path for {key}"
-            };
+                var window = desktop.MainWindow;
+                if (window != null)
+                {
+                    var options = new Avalonia.Platform.Storage.FilePickerOpenOptions
+                    {
+                        Title = $"Select path for {key}",
+                        AllowMultiple = false,
+                        FileTypeFilter = new[]
+                        {
+                            new Avalonia.Platform.Storage.FilePickerFileType("Executables") { Patterns = new[] { "*.exe" } },
+                            new Avalonia.Platform.Storage.FilePickerFileType("All Files") { Patterns = new[] { "*" } }
+                        }
+                    };
 
-            if (openFileDialog.ShowDialog() == true)
-            {
-                _launcherService.SaveManualPath(key, openFileDialog.FileName);
-                // Refresh our tools collection binding
-                Tools = null;
-                Tools = _launcherService.Tools;
-                ShowStatus($"Path updated for {key}!", false);
+                    var result = await window.StorageProvider.OpenFilePickerAsync(options);
+                    if (result != null && result.Count > 0)
+                    {
+                        var filePath = result[0].Path.LocalPath;
+                        _launcherService.SaveManualPath(key, filePath);
+                        // Refresh our tools collection binding
+                        Tools = null;
+                        Tools = _launcherService.Tools;
+                        ShowStatus($"Path updated for {key}!", false);
+                    }
+                }
             }
         }
 
@@ -481,7 +494,7 @@ namespace DiagnoseTool
             ShowStatus("Werte-Aufzeichnung gestartet.", false);
         }
 
-        private void ExecuteStopRecording()
+        private async void ExecuteStopRecording()
         {
             if (!IsRecording) return;
             IsRecording = false;
@@ -492,42 +505,55 @@ namespace DiagnoseTool
                 return;
             }
 
-            var saveFileDialog = new SaveFileDialog
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             {
-                Filter = "PDF-Dateien (*.pdf)|*.pdf",
-                Title = "Prüfbericht speichern",
-                FileName = $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                try
+                var window = desktop.MainWindow;
+                if (window != null)
                 {
-                    string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
-                    string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
-                    string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
+                    var options = new Avalonia.Platform.Storage.FilePickerSaveOptions
+                    {
+                        Title = "Prüfbericht speichern",
+                        SuggestedFileName = $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf",
+                        DefaultExtension = "pdf",
+                        FileTypeChoices = new[]
+                        {
+                            new Avalonia.Platform.Storage.FilePickerFileType("PDF-Dateien") { Patterns = new[] { "*.pdf" } }
+                        }
+                    };
 
-                    PdfReportService.GenerateReport(
-                        saveFileDialog.FileName,
-                        cpu,
-                        gpu,
-                        ram,
-                        SystemInfo,
-                        _recordingStartTime,
-                        DateTime.Now,
-                        _recordedData
-                    );
+                    var result = await window.StorageProvider.SaveFilePickerAsync(options);
+                    if (result != null)
+                    {
+                        try
+                        {
+                            var filePath = result.Path.LocalPath;
+                            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
+                            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
+                            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
 
-                    ShowStatus("PDF-Prüfbericht erfolgreich gespeichert!", false);
+                            PdfReportService.GenerateReport(
+                                filePath,
+                                cpu,
+                                gpu,
+                                ram,
+                                SystemInfo,
+                                _recordingStartTime,
+                                DateTime.Now,
+                                _recordedData
+                            );
+
+                            ShowStatus("PDF-Prüfbericht erfolgreich gespeichert!", false);
+                        }
+                        catch (Exception ex)
+                        {
+                            ShowStatus($"Fehler beim Erstellen des Berichts: {ex.Message}", true);
+                        }
+                    }
+                    else
+                    {
+                        ShowStatus("Aufzeichnung beendet (nicht gespeichert).", false);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    ShowStatus($"Fehler beim Erstellen des Berichts: {ex.Message}", true);
-                }
-            }
-            else
-            {
-                ShowStatus("Aufzeichnung beendet (nicht gespeichert).", false);
             }
         }
 
@@ -644,45 +670,58 @@ namespace DiagnoseTool
             }
         }
 
-        private void ExecuteSaveBatteryReport()
+        private async void ExecuteSaveBatteryReport()
         {
-            var saveFileDialog = new SaveFileDialog
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             {
-                Filter = "PDF-Dateien (*.pdf)|*.pdf",
-                Title = "Batterie-Prüfbericht speichern",
-                FileName = string.Format("Batteriebericht_{0:yyyyMMdd_HHmmss}.pdf", DateTime.Now)
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                try
+                var window = desktop.MainWindow;
+                if (window != null)
                 {
-                    string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
-                    string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
-                    string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
-                    
-                    TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
-                    DateTime start = DateTime.Now.Subtract(elapsed);
+                    var options = new Avalonia.Platform.Storage.FilePickerSaveOptions
+                    {
+                        Title = "Batterie-Prüfbericht speichern",
+                        SuggestedFileName = $"Batteriebericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf",
+                        DefaultExtension = "pdf",
+                        FileTypeChoices = new[]
+                        {
+                            new Avalonia.Platform.Storage.FilePickerFileType("PDF-Dateien") { Patterns = new[] { "*.pdf" } }
+                        }
+                    };
 
-                    PdfReportService.GenerateBatteryReport(
-                        saveFileDialog.FileName,
-                        cpu,
-                        gpu,
-                        ram,
-                        SystemInfo,
-                        BatteryInfo,
-                        start,
-                        DateTime.Now,
-                        BatteryTestStartPercent,
-                        BatteryTestCurrentPercent,
-                        new List<string>(BatteryTestLog)
-                    );
+                    var result = await window.StorageProvider.SaveFilePickerAsync(options);
+                    if (result != null)
+                    {
+                        try
+                        {
+                            var filePath = result.Path.LocalPath;
+                            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
+                            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
+                            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
+                            
+                            TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
+                            DateTime start = DateTime.Now.Subtract(elapsed);
 
-                    ShowStatus("PDF-Batteriebericht erfolgreich gespeichert!", false);
-                }
-                catch (Exception ex)
-                {
-                    ShowStatus(string.Format("Fehler beim Erstellen des PDF-Berichts: {0}", ex.Message), true);
+                            PdfReportService.GenerateBatteryReport(
+                                filePath,
+                                cpu,
+                                gpu,
+                                ram,
+                                SystemInfo,
+                                BatteryInfo,
+                                start,
+                                DateTime.Now,
+                                BatteryTestStartPercent,
+                                BatteryTestCurrentPercent,
+                                new List<string>(BatteryTestLog)
+                            );
+
+                            ShowStatus("PDF-Batteriebericht erfolgreich gespeichert!", false);
+                        }
+                        catch (Exception ex)
+                        {
+                            ShowStatus(string.Format("Fehler beim Erstellen des PDF-Berichts: {0}", ex.Message), true);
+                        }
+                    }
                 }
             }
         }

@@ -1,4 +1,6 @@
 using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Management;
 
 namespace DiagnoseTool
@@ -40,71 +42,157 @@ namespace DiagnoseTool
 
             var info = new SystemInfo();
 
-            // 1. Query Win32_ComputerSystem for Manufacturer and Model
-            try
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                using (var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT Manufacturer, Model FROM Win32_ComputerSystem"))
+                // 1. Query Win32_ComputerSystem for Manufacturer and Model
+                try
                 {
-                    using (var collection = searcher.Get())
+                    using (var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT Manufacturer, Model FROM Win32_ComputerSystem"))
                     {
-                        foreach (ManagementObject obj in collection)
+                        using (var collection = searcher.Get())
                         {
-                            info.Manufacturer = SanitizeValue(obj["Manufacturer"]?.ToString());
-                            info.Model = SanitizeValue(obj["Model"]?.ToString());
-                            break;
+                            foreach (ManagementObject obj in collection)
+                            {
+                                info.Manufacturer = SanitizeValue(obj["Manufacturer"]?.ToString());
+                                info.Model = SanitizeValue(obj["Model"]?.ToString());
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to query Win32_ComputerSystem: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to query Win32_ComputerSystem: {ex.Message}");
+                }
 
-            // 2. Query Win32_BIOS for SerialNumber
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT SerialNumber FROM Win32_BIOS"))
+                // 2. Query Win32_BIOS for SerialNumber
+                try
                 {
-                    using (var collection = searcher.Get())
+                    using (var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT SerialNumber FROM Win32_BIOS"))
                     {
-                        foreach (ManagementObject obj in collection)
+                        using (var collection = searcher.Get())
                         {
-                            info.SerialNumber = SanitizeValue(obj["SerialNumber"]?.ToString());
-                            break;
+                            foreach (ManagementObject obj in collection)
+                            {
+                                info.SerialNumber = SanitizeValue(obj["SerialNumber"]?.ToString());
+                                break;
+                            }
                         }
                     }
                 }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to query Win32_BIOS: {ex.Message}");
-            }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to query Win32_BIOS: {ex.Message}");
+                }
 
-            // 3. Query Win32_BaseBoard for Motherboard Info
-            try
-            {
-                using (var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT Manufacturer, Product, SerialNumber FROM Win32_BaseBoard"))
+                // 3. Query Win32_BaseBoard for Motherboard Info
+                try
                 {
-                    using (var collection = searcher.Get())
+                    using (var searcher = new ManagementObjectSearcher(@"root\cimv2", "SELECT Manufacturer, Product, SerialNumber FROM Win32_BaseBoard"))
                     {
-                        foreach (ManagementObject obj in collection)
+                        using (var collection = searcher.Get())
                         {
-                            info.MotherboardManufacturer = SanitizeValue(obj["Manufacturer"]?.ToString());
-                            info.MotherboardModel = SanitizeValue(obj["Product"]?.ToString());
-                            info.MotherboardSerialNumber = SanitizeValue(obj["SerialNumber"]?.ToString());
-                            break;
+                            foreach (ManagementObject obj in collection)
+                            {
+                                info.MotherboardManufacturer = SanitizeValue(obj["Manufacturer"]?.ToString());
+                                info.MotherboardModel = SanitizeValue(obj["Product"]?.ToString());
+                                info.MotherboardSerialNumber = SanitizeValue(obj["SerialNumber"]?.ToString());
+                                break;
+                            }
                         }
                     }
                 }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"Failed to query Win32_BaseBoard: {ex.Message}");
+                }
             }
-            catch (Exception ex)
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                System.Diagnostics.Debug.WriteLine($"Failed to query Win32_BaseBoard: {ex.Message}");
+                info.Manufacturer = "Apple";
+                info.Model = RunMacCommand("sysctl", "-n hw.model") ?? "Mac";
+                info.SerialNumber = ParseMacSerialNumber() ?? "Unbekannt";
+                info.MotherboardManufacturer = "Apple";
+                info.MotherboardModel = "Apple Silicon Motherboard";
+                info.MotherboardSerialNumber = "Unbekannt";
+            }
+            else
+            {
+                // General Linux / Generic fallback
+                info.Manufacturer = "Generic";
+                info.Model = "Generic Device";
+                info.SerialNumber = "Unbekannt";
+                info.MotherboardManufacturer = "Generic";
+                info.MotherboardModel = "Motherboard";
+                info.MotherboardSerialNumber = "Unbekannt";
             }
 
             _cachedInfo = info;
             return info;
+        }
+
+        private static string RunMacCommand(string fileName, string args)
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = fileName,
+                        Arguments = args,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return output.Trim();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string ParseMacSerialNumber()
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "/usr/sbin/ioreg",
+                        Arguments = "-rd1 -c IOPlatformExpertDevice",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                foreach (var line in output.Split('\n'))
+                {
+                    if (line.Contains("IOPlatformSerialNumber"))
+                    {
+                        var parts = line.Split('=');
+                        if (parts.Length > 1)
+                        {
+                            return parts[1].Replace("\"", "").Trim();
+                        }
+                    }
+                }
+            }
+            catch
+            {
+                // Fallback
+            }
+            return null;
         }
 
         private static string SanitizeValue(string val)

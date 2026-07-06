@@ -2,24 +2,23 @@
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
-    <TargetFramework>net48</TargetFramework>
-    <UseWPF>true</UseWPF>
+    <TargetFramework>net8.0</TargetFramework>
     <LangVersion>latest</LangVersion>
-    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationManifest Condition="$([MSBuild]::IsOSPlatform('windows'))">app.manifest</ApplicationManifest>
     <AssemblyName>DiagnoseTool</AssemblyName>
     <RootNamespace>DiagnoseTool</RootNamespace>
     <Prefer32Bit>false</Prefer32Bit>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <Nullable>disable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.1.3" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.1.3" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.1.3" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.1.3" />
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
-    <PackageReference Include="PdfSharp" Version="1.50.5147" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Reference Include="System.Management" />
+    <PackageReference Include="PdfSharp" Version="6.1.1" />
+    <PackageReference Include="System.Management" Version="10.0.2" />
   </ItemGroup>
 
 </Project>
