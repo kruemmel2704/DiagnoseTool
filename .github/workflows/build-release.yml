@@ -15,30 +15,33 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v3
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v1.1
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
 
-    - name: Setup NuGet
-      uses: nuget/setup-nuget@v1
+    - name: Publish Windows x64
+      run: dotnet publish DiagnoseTool.csproj -c Release -r win-x64 -o .\publish\win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true
 
-    - name: Restore NuGet Packages
-      run: nuget restore DiagnoseTool.csproj
+    - name: Publish macOS Intel
+      run: dotnet publish DiagnoseTool.csproj -c Release -r osx-x64 -o .\publish\osx-x64 --self-contained false -p:PublishSingleFile=true
 
-    - name: Build Project
-      run: msbuild DiagnoseTool.csproj /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64
+    - name: Publish macOS Apple Silicon
+      run: dotnet publish DiagnoseTool.csproj -c Release -r osx-arm64 -o .\publish\osx-arm64 --self-contained false -p:PublishSingleFile=true
 
-    - name: Prepare Release Package
+    - name: Prepare Release Packages
       shell: pwsh
       run: |
-        New-Item -ItemType Directory -Force -Path .\publish
-        $exe = (Get-ChildItem -Path .\bin -Filter DiagnoseTool.exe -Recurse | Select-Object -First 1).FullName
-        $outDir = Split-Path -Parent $exe
-        Copy-Item -Path "$outDir\*" -Destination .\publish\ -Recurse
-        Compress-Archive -Path .\publish\* -DestinationPath .\DiagnoseTool.zip
+        Compress-Archive -Path .\publish\win-x64\* -DestinationPath .\DiagnoseTool-Windows-x64.zip
+        Compress-Archive -Path .\publish\osx-x64\* -DestinationPath .\DiagnoseTool-macOS-Intel.zip
+        Compress-Archive -Path .\publish\osx-arm64\* -DestinationPath .\DiagnoseTool-macOS-AppleSilicon.zip
 
     - name: Create Release
       uses: softprops/action-gh-release@v1
       with:
-        files: DiagnoseTool.zip
+        files: |
+          DiagnoseTool-Windows-x64.zip
+          DiagnoseTool-macOS-Intel.zip
+          DiagnoseTool-macOS-AppleSilicon.zip
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
