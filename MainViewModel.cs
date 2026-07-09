@@ -235,7 +235,7 @@ namespace DiagnoseTool
 
         public RelayCommand StartHWiNFOCommand { get; }
 
-        public string AdminStatusText => IsAdmin ? "v1.2.0 | Admin Privileges Active" : "v1.2.0 | No Admin Privileges (Restricted)";
+        public string AdminStatusText => IsAdmin ? "v1.3.0 | Admin Privileges Active" : "v1.3.0 | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
