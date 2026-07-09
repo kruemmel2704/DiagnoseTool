@@ -42,6 +42,17 @@ namespace DiagnoseTool
         private string _batteryTestResults;
         private ObservableCollection<string> _batteryTestLog = new ObservableCollection<string>();
 
+        // CPU Stress Test states
+        private bool _isCpuStressRunning = false;
+        private TimeSpan _cpuStressRemainingTime;
+        private string _cpuStressRemainingDisplay = "00:00";
+        private int _cpuStressSelectedThreads = Environment.ProcessorCount;
+        private int _cpuStressSelectedDurationIndex = 1; // Default to 1 min (0: 30s, 1: 1m, 2: 5m, 3: 10m, 4: Infinite)
+        private bool _cpuStressCompleted = false;
+        private string _cpuStressResults = "";
+        private ObservableCollection<string> _cpuStressLog = new ObservableCollection<string>();
+        private System.Threading.CancellationTokenSource _cpuStressCts;
+
         public MainViewModel()
         {
             _monitorService = new HardwareMonitorService();
@@ -60,6 +71,8 @@ namespace DiagnoseTool
             StopBatteryTestCommand = new RelayCommand(ExecuteStopBatteryTest, () => IsBatteryTestRunning);
             SaveBatteryReportCommand = new RelayCommand(ExecuteSaveBatteryReport, () => BatteryTestCompleted);
             StartHWiNFOCommand = new RelayCommand(ExecuteStartHWiNFO);
+            StartCpuStressCommand = new RelayCommand(ExecuteStartCpuStress, () => !IsCpuStressRunning);
+            StopCpuStressCommand = new RelayCommand(ExecuteStopCpuStress, () => IsCpuStressRunning);
 
             // Detect admin privileges
             IsAdmin = IsRunningAsAdmin();
@@ -117,6 +130,7 @@ namespace DiagnoseTool
                     OnPropertyChanged(nameof(IsRepairSelected));
                     OnPropertyChanged(nameof(IsInfoSelected));
                     OnPropertyChanged(nameof(IsBatteryTestSelected));
+                    OnPropertyChanged(nameof(IsCpuStressSelected));
                 }
             }
         }
@@ -126,6 +140,54 @@ namespace DiagnoseTool
         public bool IsRepairSelected => SelectedTab == 2;
         public bool IsInfoSelected => SelectedTab == 3;
         public bool IsBatteryTestSelected => SelectedTab == 4;
+        public bool IsCpuStressSelected => SelectedTab == 5;
+
+        public bool IsCpuStressRunning
+        {
+            get => _isCpuStressRunning;
+            set
+            {
+                if (SetProperty(ref _isCpuStressRunning, value))
+                {
+                    StartCpuStressCommand.RaiseCanExecuteChanged();
+                    StopCpuStressCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        public string CpuStressRemainingDisplay
+        {
+            get => _cpuStressRemainingDisplay;
+            set => SetProperty(ref _cpuStressRemainingDisplay, value);
+        }
+
+        public int CpuStressSelectedThreads
+        {
+            get => _cpuStressSelectedThreads;
+            set => SetProperty(ref _cpuStressSelectedThreads, value);
+        }
+
+        public int CpuStressSelectedDurationIndex
+        {
+            get => _cpuStressSelectedDurationIndex;
+            set => SetProperty(ref _cpuStressSelectedDurationIndex, value);
+        }
+
+        public bool CpuStressCompleted
+        {
+            get => _cpuStressCompleted;
+            set => SetProperty(ref _cpuStressCompleted, value);
+        }
+
+        public string CpuStressResults
+        {
+            get => _cpuStressResults;
+            set => SetProperty(ref _cpuStressResults, value);
+        }
+
+        public ObservableCollection<string> CpuStressLog => _cpuStressLog;
+
+        public int MaxThreads => Environment.ProcessorCount;
 
         public string StatusMessage
         {
@@ -272,6 +334,8 @@ namespace DiagnoseTool
         public RelayCommand StartBatteryTestCommand { get; }
         public RelayCommand StopBatteryTestCommand { get; }
         public RelayCommand SaveBatteryReportCommand { get; }
+        public RelayCommand StartCpuStressCommand { get; }
+        public RelayCommand StopCpuStressCommand { get; }
 
         private void TimerTick(object sender, EventArgs e)
         {
@@ -329,11 +393,40 @@ namespace DiagnoseTool
                     FinishBatteryTest(completed: true);
                 }
             }
+
+            if (IsCpuStressRunning)
+            {
+                if (CpuStressSelectedDurationIndex != 4) // Not Infinite
+                {
+                    _cpuStressRemainingTime = _cpuStressRemainingTime.Subtract(TimeSpan.FromSeconds(1));
+                    CpuStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _cpuStressRemainingTime.Minutes + _cpuStressRemainingTime.Hours * 60, _cpuStressRemainingTime.Seconds);
+                    
+                    if (_cpuStressRemainingTime.TotalSeconds <= 0)
+                    {
+                        FinishCpuStress(completed: true);
+                    }
+                }
+                else
+                {
+                    // Count up for infinite mode
+                    _cpuStressRemainingTime = _cpuStressRemainingTime.Add(TimeSpan.FromSeconds(1));
+                    CpuStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _cpuStressRemainingTime.Minutes + _cpuStressRemainingTime.Hours * 60, _cpuStressRemainingTime.Seconds);
+                }
+
+                // Periodically log diagnostics (every 5 seconds)
+                if (DateTime.Now.Second % 5 == 0)
+                {
+                    string tempStr = Diagnostics != null && Diagnostics.CpuAverageTemp.HasValue ? $"{Diagnostics.CpuAverageTemp.Value:F1} °C" : "-- °C";
+                    string loadStr = Diagnostics != null && Diagnostics.CpuAverageLoad.HasValue ? $"{Diagnostics.CpuAverageLoad.Value:F1} %" : "-- %";
+                    CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - CPU-Temp: {1} | CPU-Auslastung: {2}", 
+                        DateTime.Now, tempStr, loadStr));
+                }
+            }
         }
 
         private void UpdateDiagnostics()
         {
-            Diagnostics = _monitorService.GetDiagnostics();
+            Diagnostics = _monitorService.GetDiagnostics(IsCpuStressRunning, CpuStressSelectedThreads);
 
             if (Diagnostics != null)
             {
@@ -878,9 +971,127 @@ namespace DiagnoseTool
             }
         }
 
+        private void ExecuteStartCpuStress()
+        {
+            if (IsCpuStressRunning) return;
+
+            IsCpuStressRunning = true;
+            CpuStressCompleted = false;
+            CpuStressResults = "";
+            CpuStressLog.Clear();
+
+            // Resolve duration
+            double durationSeconds = 0;
+            string durationText = "";
+            switch (CpuStressSelectedDurationIndex)
+            {
+                case 0:
+                    durationSeconds = 30;
+                    durationText = "30 Sekunden";
+                    break;
+                case 1:
+                    durationSeconds = 60;
+                    durationText = "1 Minute";
+                    break;
+                case 2:
+                    durationSeconds = 300;
+                    durationText = "5 Minuten";
+                    break;
+                case 3:
+                    durationSeconds = 600;
+                    durationText = "10 Minuten";
+                    break;
+                case 4:
+                    durationSeconds = double.MaxValue;
+                    durationText = "Unbegrenzt";
+                    break;
+            }
+
+            if (durationSeconds == double.MaxValue)
+            {
+                _cpuStressRemainingTime = TimeSpan.Zero;
+                CpuStressRemainingDisplay = "Unbegrenzt";
+            }
+            else
+            {
+                _cpuStressRemainingTime = TimeSpan.FromSeconds(durationSeconds);
+                CpuStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _cpuStressRemainingTime.Minutes + _cpuStressRemainingTime.Hours * 60, _cpuStressRemainingTime.Seconds);
+            }
+
+            CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest gestartet ({1} Threads, Dauer: {2})", 
+                DateTime.Now, CpuStressSelectedThreads, durationText));
+
+            // Start dedicated background threads (avoiding ThreadPool starvation to keep UI responsive)
+            _cpuStressCts = new System.Threading.CancellationTokenSource();
+            var token = _cpuStressCts.Token;
+
+            for (int i = 0; i < CpuStressSelectedThreads; i++)
+            {
+                int threadNum = i + 1;
+                var worker = new StressWorker();
+                var thread = new System.Threading.Thread(() => worker.Run(token))
+                {
+                    IsBackground = true,
+                    Name = $"DiagnoseTool Stress Core {threadNum}",
+                    Priority = System.Threading.ThreadPriority.BelowNormal // Give UI thread priority to prevent freezes
+                };
+                thread.Start();
+            }
+
+            // Raise commands changed
+            StartCpuStressCommand.RaiseCanExecuteChanged();
+            StopCpuStressCommand.RaiseCanExecuteChanged();
+        }
+
+        private void ExecuteStopCpuStress()
+        {
+            if (!IsCpuStressRunning) return;
+            CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest manuell abgebrochen.", DateTime.Now));
+            FinishCpuStress(completed: false);
+        }
+
+        private void FinishCpuStress(bool completed)
+        {
+            if (!IsCpuStressRunning) return;
+
+            // Stop all threads
+            try
+            {
+                _cpuStressCts?.Cancel();
+                _cpuStressCts?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to cancel CPU stress threads: {ex.Message}");
+            }
+            _cpuStressCts = null;
+
+            IsCpuStressRunning = false;
+            CpuStressCompleted = true;
+
+            if (completed)
+            {
+                CpuStressResults = $"Test abgeschlossen! {CpuStressSelectedThreads} Threads liefen erfolgreich.";
+                CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest erfolgreich beendet.", DateTime.Now));
+            }
+            else
+            {
+                CpuStressResults = "Test abgebrochen.";
+            }
+
+            StartCpuStressCommand.RaiseCanExecuteChanged();
+            StopCpuStressCommand.RaiseCanExecuteChanged();
+        }
+
         public void Dispose()
         {
             _timer?.Stop();
+            try
+            {
+                _cpuStressCts?.Cancel();
+                _cpuStressCts?.Dispose();
+            }
+            catch {}
             _monitorService?.Dispose();
         }
     }
@@ -893,5 +1104,39 @@ namespace DiagnoseTool
         public float? GpuGpuLoad { get; set; }
         public float? GpuGpuTemp { get; set; }
         public float? RamPercent { get; set; }
+    }
+
+    public class StressWorker
+    {
+        public volatile float Result;
+
+        public void Run(System.Threading.CancellationToken token)
+        {
+            double val = 12345.67;
+            int counter = 0;
+            while (!token.IsCancellationRequested)
+            {
+                // Tight loop of calculations to fully saturate CPU execution pipelines
+                for (int j = 0; j < 1000; j++)
+                {
+                    val = Math.Sqrt(val * 1.0000001 + j);
+                    val = Math.Sin(val) * Math.Cos(val);
+                }
+                if (val > 1000000.0 || double.IsNaN(val) || double.IsInfinity(val))
+                {
+                    val = 12345.67;
+                }
+                Result = (float)val; // Force memory write of volatile field to prevent compiler optimization
+
+                // Yield execution briefly every 200 outer iterations (approx. every 10-15ms)
+                // This prevents macOS from throttling/penalizing the app process due to App Nap / high thermal load,
+                // keeping the UI perfectly responsive while still keeping CPU utilization extremely high.
+                counter++;
+                if (counter % 200 == 0)
+                {
+                    System.Threading.Thread.Sleep(1);
+                }
+            }
+        }
     }
 }

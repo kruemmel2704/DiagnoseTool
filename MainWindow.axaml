@@ -76,6 +76,13 @@
                                      Margin="0,8,0,0" />
                                      
                         <RadioButton Classes="SidebarButton" 
+                                     Content="CPU Stresstest" 
+                                     IsChecked="{Binding IsCpuStressSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="5" 
+                                     Margin="0,8,0,0" />
+                                     
+                        <RadioButton Classes="SidebarButton" 
                                      Content="System Guide" 
                                      IsChecked="{Binding IsInfoSelected, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}" 
@@ -977,6 +984,182 @@
                                     <Grid RowDefinitions="Auto,*">
                                         <TextBlock Grid.Row="0" Text="TESTVERLAUF" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12" Margin="0,0,0,8"/>
                                         <ListBox Grid.Row="1" ItemsSource="{Binding BatteryTestLog}" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+
+                    <!-- PAGE 5: CPU STRESS TEST -->
+                    <Grid ColumnDefinitions="380,*" IsVisible="{Binding IsCpuStressSelected}">
+                        <!-- Left Panel: Stress Test Controls -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
+                            <StackPanel Spacing="16">
+                                <!-- Status Overview -->
+                                <Border Classes="CardStyle" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="STATUS ÜBERSICHT" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                        
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Test-Status:" Classes="TextMuted"/>
+                                            <TextBlock Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold"
+                                                       Classes.isRunning="{Binding IsCpuStressRunning}">
+                                                <TextBlock.Styles>
+                                                    <Style Selector="TextBlock">
+                                                        <Setter Property="Text" Value="Bereit" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+                                                    </Style>
+                                                    <Style Selector="TextBlock.isRunning">
+                                                        <Setter Property="Text" Value="Aktiv (Stressing...)" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}" />
+                                                    </Style>
+                                                </TextBlock.Styles>
+                                            </TextBlock>
+                                        </Grid>
+                                        
+                                        <Separator Background="#1C1F2E" Height="1"/>
+                                        
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Threads:" Classes="TextMuted"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CpuStressSelectedThreads}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        </Grid>
+                                        
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Dauer / Restlaufzeit:" Classes="TextMuted"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CpuStressRemainingDisplay}" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Settings Card -->
+                                <Border Classes="CardStyle">
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Text="EINSTELLUNGEN" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12"/>
+                                        
+                                        <!-- Thread Slider -->
+                                        <StackPanel Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="Threads belasten:" Classes="TextMuted" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding CpuStressSelectedThreads}" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <Slider Value="{Binding CpuStressSelectedThreads}" Minimum="1" Maximum="{Binding MaxThreads}" SmallChange="1" LargeChange="2" IsSnapToTickEnabled="True" TickFrequency="1" IsEnabled="{Binding !IsCpuStressRunning}"/>
+                                        </StackPanel>
+
+                                        <!-- Duration Selector -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Testdauer:" Classes="TextMuted"/>
+                                            <ComboBox SelectedIndex="{Binding CpuStressSelectedDurationIndex}" IsEnabled="{Binding !IsCpuStressRunning}" HorizontalAlignment="Stretch" Background="#0C0E14" BorderBrush="#1C1F2E">
+                                                <ComboBoxItem Content="30 Sekunden"/>
+                                                <ComboBoxItem Content="1 Minute"/>
+                                                <ComboBoxItem Content="5 Minuten"/>
+                                                <ComboBoxItem Content="10 Minuten"/>
+                                                <ComboBoxItem Content="Unbegrenzt"/>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <!-- Start/Stop Buttons -->
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                                            <!-- Start Button -->
+                                            <Button Grid.Column="0" Classes="PrimaryButton" Content="Stresstest starten" 
+                                                    Command="{Binding StartCpuStressCommand}" Height="40" 
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    IsVisible="{Binding !IsCpuStressRunning}"/>
+
+                                            <!-- Stop Button -->
+                                            <Button Grid.Column="0" Classes="PrimaryButton" Content="Test abbrechen" 
+                                                    Command="{Binding StopCpuStressCommand}" Height="40" Background="#EF4444"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    IsVisible="{Binding IsCpuStressRunning}">
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                        <Setter Property="Background" Value="#F87171" />
+                                                    </Style>
+                                                    <Style Selector="Button:pressed /template/ ContentPresenter">
+                                                        <Setter Property="Background" Value="#DC2626" />
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
+
+                                            <!-- Countdown display when running -->
+                                            <Border Grid.Column="1" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1" CornerRadius="8" Padding="16,0" Margin="12,0,0,0" Height="40" VerticalAlignment="Center"
+                                                    IsVisible="{Binding IsCpuStressRunning}">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <!-- Pulsing dot -->
+                                                    <Ellipse Width="8" Height="8" Fill="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                        <Ellipse.Styles>
+                                                            <Style Selector="Ellipse">
+                                                                <Style.Animations>
+                                                                    <Animation Duration="0:0:1.2" IterationCount="Infinite" PlaybackDirection="Alternate">
+                                                                        <KeyFrame KeyTime="0:0:0">
+                                                                            <Setter Property="Opacity" Value="1.0"/>
+                                                                        </KeyFrame>
+                                                                        <KeyFrame KeyTime="0:0:0.6">
+                                                                            <Setter Property="Opacity" Value="0.2"/>
+                                                                        </KeyFrame>
+                                                                    </Animation>
+                                                                </Style.Animations>
+                                                            </Style>
+                                                        </Ellipse.Styles>
+                                                    </Ellipse>
+                                                    <TextBlock Text="{Binding CpuStressRemainingDisplay}" Foreground="{DynamicResource BrushTextPrimary}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Right Panel: Core Monitor & Activity Log -->
+                        <Grid RowDefinitions="*,1.2*" Grid.Column="1">
+                            <!-- Core Monitor Card -->
+                            <Border Grid.Row="0" Classes="CardStyle" Margin="0,0,0,12" Background="#0A0B10">
+                                <Grid RowDefinitions="Auto,*">
+                                    <TextBlock Grid.Row="0" Text="REAL-TIME CORE MONITOR" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12" Margin="0,0,0,10"/>
+                                    
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding Diagnostics.CpuCores}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel HorizontalAlignment="Center"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="112" Height="78" BorderBrush="{Binding TemperatureColor}" BorderThickness="1.5" Background="#0C0E14" CornerRadius="8" Padding="10,6" Margin="4">
+                                                        <Grid RowDefinitions="Auto,Auto,Auto">
+                                                            <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Row="1" Text="{Binding TemperatureDisplay}" FontSize="16" FontWeight="Bold" Foreground="{Binding TemperatureColor}" HorizontalAlignment="Center" Margin="0,2,0,2"/>
+                                                            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto">
+                                                                <TextBlock Grid.Column="0" Text="L:" FontSize="9" Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
+                                                                <ProgressBar Grid.Column="1" Classes="ModernProgressBar" Value="{Binding Load}" Maximum="100" Height="4" Margin="4,0" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding LoadDisplay}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+
+                            <!-- Activity Log & Results Card -->
+                            <Grid RowDefinitions="Auto,*" Grid.Row="1">
+                                <!-- Results Summary -->
+                                <Border Grid.Row="0" Classes="CardStyle" Background="#0D2E27" BorderBrush="#155E4C" BorderThickness="1" Margin="0,0,0,12"
+                                        IsVisible="{Binding CpuStressCompleted}">
+                                    <StackPanel>
+                                        <TextBlock Text="TEST BEENDET - ZUSAMMENFASSUNG" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding CpuStressResults}" FontSize="12" Foreground="{DynamicResource BrushTextPrimary}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Activity Log list -->
+                                <Border Grid.Row="1" Classes="CardStyle">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <TextBlock Grid.Row="0" Text="TESTVERLAUF" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12" Margin="0,0,0,8"/>
+                                        <ListBox Grid.Row="1" ItemsSource="{Binding CpuStressLog}" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1"/>
                                     </Grid>
                                 </Border>
                             </Grid>
