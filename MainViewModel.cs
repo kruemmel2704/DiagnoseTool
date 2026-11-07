@@ -53,6 +53,29 @@ namespace DiagnoseTool
         private ObservableCollection<string> _cpuStressLog = new ObservableCollection<string>();
         private System.Threading.CancellationTokenSource _cpuStressCts;
 
+        // RAM Stress Test states
+        private bool _isRamStressRunning = false;
+        private TimeSpan _ramStressRemainingTime;
+        private string _ramStressRemainingDisplay = "00:00";
+        private int _ramStressTargetPercent = 85; // 40% to 95%
+        private int _ramStressSelectedDurationIndex = 1; // Default to 1 min (0: 30s, 1: 1m, 2: 5m, 3: 10m, 4: Infinite)
+        private bool _ramStressCompleted = false;
+        private string _ramStressResults = "";
+        private ObservableCollection<string> _ramStressLog = new ObservableCollection<string>();
+        private System.Threading.CancellationTokenSource _ramStressCts;
+        private double _ramStressAllocatedGb = 0;
+        private double _ramStressSpeedGbps = 0;
+        private int _ramStressPassCount = 0;
+        private int _ramStressErrorCount = 0;
+        private string _ramStressStatusText = "Bereit zum RAM-Stresstest";
+        private readonly List<byte[]> _ramBlocks = new List<byte[]>();
+
+        // Order & Online Monitoring (LHM API on Port 8085)
+        private string _orderNumber = "";
+        private LhmHttpServer _lhmHttpServer;
+        private bool _isOnlineMonitoringActive = false;
+        private string _onlineMonitoringStatusText = "Inaktiv (Startet mit Aufzeichnung)";
+
         public MainViewModel()
         {
             _monitorService = new HardwareMonitorService();
@@ -73,6 +96,13 @@ namespace DiagnoseTool
             StartHWiNFOCommand = new RelayCommand(ExecuteStartHWiNFO);
             StartCpuStressCommand = new RelayCommand(ExecuteStartCpuStress, () => !IsCpuStressRunning);
             StopCpuStressCommand = new RelayCommand(ExecuteStopCpuStress, () => IsCpuStressRunning);
+            StartRamStressCommand = new RelayCommand(ExecuteStartRamStress, () => !IsRamStressRunning);
+            StopRamStressCommand = new RelayCommand(ExecuteStopRamStress, () => IsRamStressRunning);
+            StartOnlineMonitoringCommand = new RelayCommand(StartOnlineMonitoring);
+            StopOnlineMonitoringCommand = new RelayCommand(StopOnlineMonitoring);
+            ToggleOnlineMonitoringCommand = new RelayCommand(ToggleOnlineMonitoring);
+            LaunchFurMarkDonutCommand = new RelayCommand(ExecuteLaunchFurMarkDirect);
+            LaunchFurMarkGuiCommand = new RelayCommand(ExecuteLaunchFurMarkGui);
 
             // Detect admin privileges
             IsAdmin = IsRunningAsAdmin();
@@ -131,6 +161,7 @@ namespace DiagnoseTool
                     OnPropertyChanged(nameof(IsInfoSelected));
                     OnPropertyChanged(nameof(IsBatteryTestSelected));
                     OnPropertyChanged(nameof(IsCpuStressSelected));
+                    OnPropertyChanged(nameof(IsRamStressSelected));
                 }
             }
         }
@@ -141,6 +172,102 @@ namespace DiagnoseTool
         public bool IsInfoSelected => SelectedTab == 3;
         public bool IsBatteryTestSelected => SelectedTab == 4;
         public bool IsCpuStressSelected => SelectedTab == 5;
+        public bool IsRamStressSelected => SelectedTab == 6;
+
+        public bool IsRamStressRunning
+        {
+            get => _isRamStressRunning;
+            set
+            {
+                if (SetProperty(ref _isRamStressRunning, value))
+                {
+                    StartRamStressCommand.RaiseCanExecuteChanged();
+                    StopRamStressCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        public string RamStressRemainingDisplay
+        {
+            get => _ramStressRemainingDisplay;
+            set => SetProperty(ref _ramStressRemainingDisplay, value);
+        }
+
+        public int RamStressTargetPercent
+        {
+            get => _ramStressTargetPercent;
+            set => SetProperty(ref _ramStressTargetPercent, value);
+        }
+
+        public int RamStressSelectedDurationIndex
+        {
+            get => _ramStressSelectedDurationIndex;
+            set => SetProperty(ref _ramStressSelectedDurationIndex, value);
+        }
+
+        public bool RamStressCompleted
+        {
+            get => _ramStressCompleted;
+            set => SetProperty(ref _ramStressCompleted, value);
+        }
+
+        public string RamStressResults
+        {
+            get => _ramStressResults;
+            set => SetProperty(ref _ramStressResults, value);
+        }
+
+        public ObservableCollection<string> RamStressLog
+        {
+            get => _ramStressLog;
+            set => SetProperty(ref _ramStressLog, value);
+        }
+
+        public double RamStressAllocatedGb
+        {
+            get => _ramStressAllocatedGb;
+            set
+            {
+                if (SetProperty(ref _ramStressAllocatedGb, value))
+                {
+                    OnPropertyChanged(nameof(RamStressAllocatedDisplay));
+                }
+            }
+        }
+
+        public string RamStressAllocatedDisplay => $"{RamStressAllocatedGb:F1} GB alloziert";
+
+        public double RamStressSpeedGbps
+        {
+            get => _ramStressSpeedGbps;
+            set
+            {
+                if (SetProperty(ref _ramStressSpeedGbps, value))
+                {
+                    OnPropertyChanged(nameof(RamStressSpeedDisplay));
+                }
+            }
+        }
+
+        public string RamStressSpeedDisplay => $"{RamStressSpeedGbps:F1} GB/s";
+
+        public int RamStressPassCount
+        {
+            get => _ramStressPassCount;
+            set => SetProperty(ref _ramStressPassCount, value);
+        }
+
+        public int RamStressErrorCount
+        {
+            get => _ramStressErrorCount;
+            set => SetProperty(ref _ramStressErrorCount, value);
+        }
+
+        public string RamStressStatusText
+        {
+            get => _ramStressStatusText;
+            set => SetProperty(ref _ramStressStatusText, value);
+        }
 
         public bool IsCpuStressRunning
         {
@@ -235,7 +362,7 @@ namespace DiagnoseTool
 
         public RelayCommand StartHWiNFOCommand { get; }
 
-        public string AdminStatusText => IsAdmin ? "v1.3.0 | Admin Privileges Active" : "v1.3.0 | No Admin Privileges (Restricted)";
+        public string AdminStatusText => IsAdmin ? "v2.0 | Admin Privileges Active" : "v2.0 | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
@@ -336,6 +463,40 @@ namespace DiagnoseTool
         public RelayCommand SaveBatteryReportCommand { get; }
         public RelayCommand StartCpuStressCommand { get; }
         public RelayCommand StopCpuStressCommand { get; }
+        public RelayCommand StartRamStressCommand { get; }
+        public RelayCommand StopRamStressCommand { get; }
+        public RelayCommand StartOnlineMonitoringCommand { get; }
+        public RelayCommand StopOnlineMonitoringCommand { get; }
+        public RelayCommand ToggleOnlineMonitoringCommand { get; }
+        public RelayCommand LaunchFurMarkDonutCommand { get; }
+        public RelayCommand LaunchFurMarkGuiCommand { get; }
+
+        public string OrderNumber
+        {
+            get => _orderNumber;
+            set
+            {
+                if (SetProperty(ref _orderNumber, value))
+                {
+                    if (IsOnlineMonitoringActive)
+                    {
+                        System.Threading.Tasks.Task.Run(() => LhmHttpServer.RegisterWithHardwareCheckAsync(_orderNumber));
+                    }
+                }
+            }
+        }
+
+        public bool IsOnlineMonitoringActive
+        {
+            get => _isOnlineMonitoringActive;
+            set => SetProperty(ref _isOnlineMonitoringActive, value);
+        }
+
+        public string OnlineMonitoringStatusText
+        {
+            get => _onlineMonitoringStatusText;
+            set => SetProperty(ref _onlineMonitoringStatusText, value);
+        }
 
         private void TimerTick(object sender, EventArgs e)
         {
@@ -420,6 +581,34 @@ namespace DiagnoseTool
                     string loadStr = Diagnostics != null && Diagnostics.CpuAverageLoad.HasValue ? $"{Diagnostics.CpuAverageLoad.Value:F1} %" : "-- %";
                     CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - CPU-Temp: {1} | CPU-Auslastung: {2}", 
                         DateTime.Now, tempStr, loadStr));
+                }
+            }
+
+            if (IsRamStressRunning)
+            {
+                if (RamStressSelectedDurationIndex != 4) // Not Infinite
+                {
+                    _ramStressRemainingTime = _ramStressRemainingTime.Subtract(TimeSpan.FromSeconds(1));
+                    RamStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _ramStressRemainingTime.Minutes + _ramStressRemainingTime.Hours * 60, _ramStressRemainingTime.Seconds);
+                    
+                    if (_ramStressRemainingTime.TotalSeconds <= 0)
+                    {
+                        FinishRamStress(completed: true);
+                    }
+                }
+                else
+                {
+                    // Count up for infinite mode
+                    _ramStressRemainingTime = _ramStressRemainingTime.Add(TimeSpan.FromSeconds(1));
+                    RamStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _ramStressRemainingTime.Minutes + _ramStressRemainingTime.Hours * 60, _ramStressRemainingTime.Seconds);
+                }
+
+                // Periodically log diagnostics (every 5 seconds)
+                if (DateTime.Now.Second % 5 == 0)
+                {
+                    string ramUsage = Diagnostics?.RamUsageDisplay ?? "--";
+                    RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - RAM: {1} ({2:F1}%) | Speed: {3:F1} GB/s | Zyklen: {4} | Fehler: {5}", 
+                        DateTime.Now, ramUsage, Diagnostics?.RamPercent ?? 0, RamStressSpeedGbps, RamStressPassCount, RamStressErrorCount));
                 }
             }
         }
@@ -584,7 +773,11 @@ namespace DiagnoseTool
             IsRecording = true;
             RecordingTimeDisplay = "00:00:00";
             OnPropertyChanged(nameof(RecordedSamplesCount));
-            ShowStatus("Werte-Aufzeichnung gestartet.", false);
+
+            // Start LHM Online Monitoring Server on port 8085 and register with /Hardware-Check
+            StartOnlineMonitoring();
+
+            ShowStatus("Werte-Aufzeichnung & LHM Online-Monitoring (Port 8085) gestartet.", false);
         }
 
         private async void ExecuteStopRecording()
@@ -603,10 +796,14 @@ namespace DiagnoseTool
                 var window = desktop.MainWindow;
                 if (window != null)
                 {
+                    string defaultFileName = !string.IsNullOrWhiteSpace(OrderNumber)
+                        ? $"Pruefbericht_{OrderNumber.Trim()}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
+                        : $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
+
                     var options = new Avalonia.Platform.Storage.FilePickerSaveOptions
                     {
                         Title = "Prüfbericht speichern",
-                        SuggestedFileName = $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf",
+                        SuggestedFileName = defaultFileName,
                         DefaultExtension = "pdf",
                         FileTypeChoices = new[]
                         {
@@ -632,7 +829,8 @@ namespace DiagnoseTool
                                 SystemInfo,
                                 _recordingStartTime,
                                 DateTime.Now,
-                                _recordedData
+                                _recordedData,
+                                OrderNumber
                             );
 
                             ShowStatus("PDF-Prüfbericht erfolgreich gespeichert!", false);
@@ -647,6 +845,65 @@ namespace DiagnoseTool
                         ShowStatus("Aufzeichnung beendet (nicht gespeichert).", false);
                     }
                 }
+            }
+        }
+
+        public void StartOnlineMonitoring()
+        {
+            if (_lhmHttpServer == null)
+            {
+                _lhmHttpServer = new LhmHttpServer(() => Diagnostics, () => SystemInfo, () => BatteryInfo);
+            }
+
+            bool started = _lhmHttpServer.Start(OrderNumber);
+            IsOnlineMonitoringActive = _lhmHttpServer.IsRunning;
+            if (started)
+            {
+                string localIp = LhmHttpServer.GetPrimaryLocalIp();
+                OnlineMonitoringStatusText = $"Port 8085 aktiv (http://{localIp}:8085/data.json)";
+            }
+            else
+            {
+                OnlineMonitoringStatusText = "Port 8085 konnte nicht gestartet werden";
+            }
+        }
+
+        public void StopOnlineMonitoring()
+        {
+            _lhmHttpServer?.Stop();
+            IsOnlineMonitoringActive = false;
+            OnlineMonitoringStatusText = "Inaktiv";
+        }
+
+        public void ToggleOnlineMonitoring()
+        {
+            if (IsOnlineMonitoringActive)
+                StopOnlineMonitoring();
+            else
+                StartOnlineMonitoring();
+        }
+
+        public void ExecuteLaunchFurMarkDirect()
+        {
+            if (_launcherService.LaunchFurMarkDirect(out string error))
+            {
+                ShowStatus("FurMark 3D-Donut Stresstest direkt gestartet!", false);
+            }
+            else
+            {
+                ShowStatus(error ?? "Fehler beim Starten von FurMark.", true);
+            }
+        }
+
+        public void ExecuteLaunchFurMarkGui()
+        {
+            if (_launcherService.LaunchFurMarkGui(out string error))
+            {
+                ShowStatus("FurMark Einstellungen (GUI) geöffnet.", false);
+            }
+            else
+            {
+                ShowStatus(error ?? "Fehler beim Starten von FurMark.", true);
             }
         }
 
@@ -835,7 +1092,7 @@ namespace DiagnoseTool
             }
         }        private string GetHWiNFOPath()
         {
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string baseDir = System.IO.Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
             string[] paths = new[]
             {
                 System.IO.Path.Combine(baseDir, "HWiNFO64.exe"),
@@ -1083,6 +1340,278 @@ namespace DiagnoseTool
             StopCpuStressCommand.RaiseCanExecuteChanged();
         }
 
+        private void ExecuteStartRamStress()
+        {
+            if (IsRamStressRunning) return;
+
+            IsRamStressRunning = true;
+            RamStressCompleted = false;
+            RamStressResults = "";
+            RamStressPassCount = 0;
+            RamStressErrorCount = 0;
+            RamStressAllocatedGb = 0;
+            RamStressSpeedGbps = 0;
+            RamStressStatusText = "Reserviere und fülle Arbeitsspeicher...";
+            RamStressLog.Clear();
+
+            double durationSeconds = 60;
+            string durationText = "1 Minute";
+            switch (RamStressSelectedDurationIndex)
+            {
+                case 0:
+                    durationSeconds = 30;
+                    durationText = "30 Sekunden";
+                    break;
+                case 1:
+                    durationSeconds = 60;
+                    durationText = "1 Minute";
+                    break;
+                case 2:
+                    durationSeconds = 300;
+                    durationText = "5 Minuten";
+                    break;
+                case 3:
+                    durationSeconds = 600;
+                    durationText = "10 Minuten";
+                    break;
+                case 4:
+                    durationSeconds = double.MaxValue;
+                    durationText = "Unbegrenzt";
+                    break;
+            }
+
+            if (durationSeconds == double.MaxValue)
+            {
+                _ramStressRemainingTime = TimeSpan.Zero;
+                RamStressRemainingDisplay = "Unbegrenzt";
+            }
+            else
+            {
+                _ramStressRemainingTime = TimeSpan.FromSeconds(durationSeconds);
+                RamStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _ramStressRemainingTime.Minutes + _ramStressRemainingTime.Hours * 60, _ramStressRemainingTime.Seconds);
+            }
+
+            RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - RAM-Stresstest gestartet (Ziel: {1}% System-RAM, Dauer: {2})", 
+                DateTime.Now, RamStressTargetPercent, durationText));
+
+            _ramStressCts = new System.Threading.CancellationTokenSource();
+            var token = _ramStressCts.Token;
+
+            System.Threading.Tasks.Task.Run(() => RunRamStressTask(token));
+
+            StartRamStressCommand.RaiseCanExecuteChanged();
+            StopRamStressCommand.RaiseCanExecuteChanged();
+        }
+
+        private void RunRamStressTask(System.Threading.CancellationToken token)
+        {
+            const int chunkSize = 64 * 1024 * 1024; // 64 MB per block
+            lock (_ramBlocks)
+            {
+                _ramBlocks.Clear();
+            }
+
+            double totalSystemRamGb = (Diagnostics != null && Diagnostics.RamTotalGb > 0) ? Diagnostics.RamTotalGb : 16.0;
+            double currentUsedGb = (Diagnostics != null && Diagnostics.RamUsedGb > 0) ? Diagnostics.RamUsedGb : 4.0;
+            
+            // Calculate target GB to allocate:
+            // Desired total RAM usage is RamStressTargetPercent (e.g. 85%) of totalSystemRamGb.
+            // Leave at least 1.2 GB headroom for Windows kernel & UI responsiveness.
+            double targetUsedGb = totalSystemRamGb * (RamStressTargetPercent / 100.0);
+            double maxAllowedUsedGb = Math.Max(0.5, totalSystemRamGb - 1.2);
+            if (targetUsedGb > maxAllowedUsedGb)
+            {
+                targetUsedGb = maxAllowedUsedGb;
+            }
+
+            double toAllocateGb = Math.Max(0.5, targetUsedGb - currentUsedGb);
+            int targetBlocks = (int)Math.Max(4, (toAllocateGb * 1024.0 * 1024.0 * 1024.0) / chunkSize);
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - Allokiere ca. {1:F1} GB ({2} Blöcke à 64 MB)...",
+                    DateTime.Now, toAllocateGb, targetBlocks));
+            });
+
+            // Allocation phase
+            for (int i = 0; i < targetBlocks; i++)
+            {
+                if (token.IsCancellationRequested) break;
+
+                try
+                {
+                    byte[] block = new byte[chunkSize];
+                    // Touch/fill memory so OS commits physical pages
+                    Array.Fill<byte>(block, 0x55);
+                    lock (_ramBlocks)
+                    {
+                        _ramBlocks.Add(block);
+                    }
+                }
+                catch (OutOfMemoryException)
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - Maximale Speicherallokation erreicht (Sicherheitsgrenze).", DateTime.Now));
+                    });
+                    break;
+                }
+
+                if ((i + 1) % 4 == 0 || i == targetBlocks - 1)
+                {
+                    double currentAllocGb = ((i + 1) * 64.0) / 1024.0;
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        RamStressAllocatedGb = currentAllocGb;
+                    });
+                }
+            }
+
+            double finalAllocGb;
+            int blockCount;
+            lock (_ramBlocks)
+            {
+                blockCount = _ramBlocks.Count;
+                finalAllocGb = (blockCount * 64.0) / 1024.0;
+            }
+
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                RamStressAllocatedGb = finalAllocGb;
+                RamStressStatusText = $"Aktiv (Gefüllt: {finalAllocGb:F1} GB) - Stresstest läuft";
+                RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - {1:F1} GB reserviert ({2} Blöcke). Starte Multi-Thread Prüfzyklen...",
+                    DateTime.Now, finalAllocGb, blockCount));
+            });
+
+            // Continuous Stress & Integrity testing loop
+            byte[] patterns = new byte[] { 0xAA, 0x55, 0xCC, 0x33, 0xFF, 0x00 };
+            int patternIndex = 0;
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            long totalBytesProcessed = 0;
+
+            while (!token.IsCancellationRequested)
+            {
+                byte writePattern = patterns[patternIndex % patterns.Length];
+                byte verifyExpected = writePattern;
+                patternIndex++;
+
+                long cycleBytes = 0;
+                int cycleErrors = 0;
+
+                // Test blocks in parallel across CPU threads
+                System.Threading.Tasks.Parallel.For(0, blockCount, new System.Threading.Tasks.ParallelOptions { CancellationToken = token }, (bIndex, loopState) =>
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        loopState.Stop();
+                        return;
+                    }
+
+                    byte[] b;
+                    lock (_ramBlocks)
+                    {
+                        if (bIndex < _ramBlocks.Count)
+                            b = _ramBlocks[bIndex];
+                        else
+                            return;
+                    }
+
+                    // Write phase
+                    for (int j = 0; j < b.Length; j += 64)
+                    {
+                        b[j] = writePattern;
+                        b[j + 1] = writePattern;
+                        b[j + 2] = writePattern;
+                        b[j + 3] = writePattern;
+                    }
+
+                    // Verify phase
+                    for (int j = 0; j < b.Length; j += 64)
+                    {
+                        if (b[j] != verifyExpected || b[j + 1] != verifyExpected)
+                        {
+                            System.Threading.Interlocked.Increment(ref cycleErrors);
+                        }
+                    }
+
+                    System.Threading.Interlocked.Add(ref cycleBytes, b.Length);
+                });
+
+                if (token.IsCancellationRequested) break;
+
+                totalBytesProcessed += cycleBytes;
+                double seconds = sw.Elapsed.TotalSeconds;
+                double speedGbps = seconds > 0 ? (totalBytesProcessed / (1024.0 * 1024.0 * 1024.0)) / seconds : 0;
+
+                Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    RamStressPassCount++;
+                    if (cycleErrors > 0)
+                    {
+                        RamStressErrorCount += cycleErrors;
+                        RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - WARNUNG: {1} Bitfehler in Zyklus {2} festgestellt!",
+                            DateTime.Now, cycleErrors, RamStressPassCount));
+                    }
+                    RamStressSpeedGbps = speedGbps;
+                });
+
+                System.Threading.Thread.Sleep(20);
+            }
+        }
+
+        private void ExecuteStopRamStress()
+        {
+            if (!IsRamStressRunning) return;
+            RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest manuell abgebrochen.", DateTime.Now));
+            FinishRamStress(completed: false);
+        }
+
+        private void FinishRamStress(bool completed)
+        {
+            if (!IsRamStressRunning) return;
+
+            try
+            {
+                _ramStressCts?.Cancel();
+                _ramStressCts?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to cancel RAM stress: {ex.Message}");
+            }
+            _ramStressCts = null;
+
+            // Free all memory immediately
+            lock (_ramBlocks)
+            {
+                _ramBlocks.Clear();
+            }
+            GC.Collect(2, GCCollectionMode.Forced, true);
+            GC.WaitForPendingFinalizers();
+
+            IsRamStressRunning = false;
+            RamStressCompleted = true;
+            RamStressAllocatedGb = 0;
+            RamStressSpeedGbps = 0;
+
+            if (completed)
+            {
+                RamStressStatusText = "Test erfolgreich abgeschlossen";
+                RamStressResults = $"Test abgeschlossen! {RamStressPassCount} Zyklen durchgeführt. Fehler: {RamStressErrorCount}";
+                RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - RAM-Stresstest erfolgreich beendet ({1} Zyklen, {2} Fehler). Speicher freigegeben.",
+                    DateTime.Now, RamStressPassCount, RamStressErrorCount));
+            }
+            else
+            {
+                RamStressStatusText = "Test abgebrochen";
+                RamStressResults = "Test abgebrochen. Speicher freigegeben.";
+                RamStressLog.Add(string.Format("[{0:HH:mm:ss}] - Speicher freigegeben.", DateTime.Now));
+            }
+
+            StartRamStressCommand.RaiseCanExecuteChanged();
+            StopRamStressCommand.RaiseCanExecuteChanged();
+        }
+
         public void Dispose()
         {
             _timer?.Stop();
@@ -1090,6 +1619,22 @@ namespace DiagnoseTool
             {
                 _cpuStressCts?.Cancel();
                 _cpuStressCts?.Dispose();
+            }
+            catch {}
+            try
+            {
+                _ramStressCts?.Cancel();
+                _ramStressCts?.Dispose();
+            }
+            catch {}
+            lock (_ramBlocks)
+            {
+                _ramBlocks.Clear();
+            }
+            try
+            {
+                _lhmHttpServer?.Stop();
+                _lhmHttpServer?.Dispose();
             }
             catch {}
             _monitorService?.Dispose();

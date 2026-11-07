@@ -5,10 +5,10 @@ echo "=== Starting macOS App Bundle Creation ==="
 
 # 1. Publish the project for both osx-arm64 and osx-x64
 echo "Publishing project for osx-arm64..."
-dotnet publish DiagnoseTool.csproj -c Release -r osx-arm64 -o ./publish/osx-arm64 --self-contained false -p:PublishSingleFile=true
+dotnet publish DiagnoseTool.csproj -c Release -r osx-arm64 -o ./publish/osx-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 
 echo "Publishing project for osx-x64..."
-dotnet publish DiagnoseTool.csproj -c Release -r osx-x64 -o ./publish/osx-x64 --self-contained false -p:PublishSingleFile=true
+dotnet publish DiagnoseTool.csproj -c Release -r osx-x64 -o ./publish/osx-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
 
 # 2. Setup the App Bundle structure
 APP_DIR="DiagnoseTool.app"
@@ -73,11 +73,11 @@ cat << 'EOF' > "$APP_DIR"/Contents/Info.plist
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.3.0</string>
+    <string>2.0.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleVersion</key>
-    <string>1.3.0</string>
+    <string>2.0.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.12</string>
     <key>NSPrincipalClass</key>

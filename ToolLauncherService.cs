@@ -1,8 +1,10 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Diagnostics;
 using System.Collections.Generic;
+using System.Reflection;
 
 namespace DiagnoseTool
 {
@@ -14,14 +16,19 @@ namespace DiagnoseTool
         public string AlternateExeName { get; set; }
         public string Description { get; set; }
         public string Path { get; set; }
+        public bool IsEmbedded { get; set; }
+        public bool IsFurMark => Key == "FurMark";
         public bool IsFound => !string.IsNullOrEmpty(Path) && File.Exists(Path);
-        public string DisplayStatus => IsFound ? "Ready (Found)" : "Not Found (Insert USB or browse)";
+        public string DisplayStatus => IsFound 
+            ? (IsEmbedded ? "Bereit (Integriert in App)" : "Bereit (Gefunden)") 
+            : "Nicht gefunden (USB einstecken oder auswählen)";
     }
 
     public class ToolLauncherService
     {
         private const string ConfigFileName = "tool_paths.txt";
         private readonly Dictionary<string, string> _manualPaths = new Dictionary<string, string>();
+        private static readonly object _extractLock = new object();
         
         public List<TestTool> Tools { get; private set; }
 
@@ -41,15 +48,15 @@ namespace DiagnoseTool
                     Name = "OCCT",
                     ExeName = "OCCT.exe",
                     AlternateExeName = "OCCTPersonal.exe",
-                    Description = "Excellent tool for CPU, GPU, and Power Supply stability testing and error detection."
+                    Description = "Zuverlässiges Tool für CPU-, GPU- und Netzteil-Stabilitätstests sowie Fehlererkennung."
                 },
                 new TestTool
                 {
                     Key = "FurMark",
-                    Name = "FurMark",
-                    ExeName = "FurMark.exe",
-                    AlternateExeName = "FurMark2.exe",
-                    Description = "Intense GPU stress testing tool (also known as the 'donut generator') to verify graphics stability."
+                    Name = "FurMark GPU Stress",
+                    ExeName = "FurMark_GUI.exe",
+                    AlternateExeName = "furmark.exe",
+                    Description = "Intensiver GPU-Stresstest (Donut-Generator) zur Überprüfung von Grafikkarten-Stabilität und maximaler Auslastung."
                 },
                 new TestTool
                 {
@@ -57,7 +64,7 @@ namespace DiagnoseTool
                     Name = "Prime95",
                     ExeName = "prime95.exe",
                     AlternateExeName = "prime95w.exe",
-                    Description = "Legendary CPU stress test using Prime Number calculations to expose hardware faults."
+                    Description = "Legendärer CPU-Stresstest mit Primzahlberechnungen zur Ermittlung von Rechen- und Hardwarefehlern."
                 },
                 new TestTool
                 {
@@ -65,7 +72,7 @@ namespace DiagnoseTool
                     Name = "Victoria SSD/HDD Utility",
                     ExeName = "Victoria.exe",
                     AlternateExeName = "Victoria64.exe",
-                    Description = "Advanced drive diagnostic utility. Scans storage surface blocks, measures access times, reads SMART health data, and remaps bad sectors."
+                    Description = "Erweiterte Datenträger-Diagnose. Prüft Speicherblöcke, Zugriffszeiten, SMART-Zustand und defekte Sektoren."
                 }
             };
 
@@ -80,6 +87,7 @@ namespace DiagnoseTool
                 if (_manualPaths.TryGetValue(tool.Key, out string manualPath) && File.Exists(manualPath))
                 {
                     tool.Path = manualPath;
+                    tool.IsEmbedded = false;
                     continue;
                 }
 
@@ -88,11 +96,88 @@ namespace DiagnoseTool
                 if (!string.IsNullOrEmpty(usbPath))
                 {
                     tool.Path = usbPath;
+                    tool.IsEmbedded = false;
+                    continue;
                 }
-                else
+
+                // 3. Embedded Tool fallback (e.g. FurMark)
+                if (tool.Key == "FurMark")
                 {
-                    tool.Path = null;
+                    string embeddedPath = EnsureEmbeddedToolExtracted("FurMark", tool.ExeName, tool.AlternateExeName);
+                    if (!string.IsNullOrEmpty(embeddedPath) && File.Exists(embeddedPath))
+                    {
+                        tool.Path = embeddedPath;
+                        tool.IsEmbedded = true;
+                        continue;
+                    }
                 }
+
+                tool.Path = null;
+                tool.IsEmbedded = false;
+            }
+        }
+
+        public static string EnsureEmbeddedToolExtracted(string toolKey, string primaryExe, string altExe = null)
+        {
+            try
+            {
+                string localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+                string targetDir = Path.Combine(localAppData, "DiagnoseTool", "Tools", toolKey);
+
+                string primaryPath = Path.Combine(targetDir, primaryExe);
+                if (File.Exists(primaryPath))
+                {
+                    return primaryPath;
+                }
+
+                if (!string.IsNullOrEmpty(altExe))
+                {
+                    string altPath = Path.Combine(targetDir, altExe);
+                    if (File.Exists(altPath))
+                    {
+                        return altPath;
+                    }
+                }
+
+                lock (_extractLock)
+                {
+                    if (File.Exists(primaryPath)) return primaryPath;
+
+                    var assembly = Assembly.GetExecutingAssembly();
+                    string resourceName = assembly.GetManifestResourceNames()
+                        .FirstOrDefault(r => r.EndsWith($"{toolKey}.zip", StringComparison.OrdinalIgnoreCase) ||
+                                             (r.IndexOf(toolKey, StringComparison.OrdinalIgnoreCase) >= 0 && r.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)));
+
+                    if (string.IsNullOrEmpty(resourceName))
+                    {
+                        return null;
+                    }
+
+                    Directory.CreateDirectory(targetDir);
+
+                    using (var stream = assembly.GetManifestResourceStream(resourceName))
+                    {
+                        if (stream == null) return null;
+                        using (var archive = new ZipArchive(stream, ZipArchiveMode.Read))
+                        {
+                            archive.ExtractToDirectory(targetDir, overwriteFiles: true);
+                        }
+                    }
+
+                    if (File.Exists(primaryPath)) return primaryPath;
+                    if (!string.IsNullOrEmpty(altExe) && File.Exists(Path.Combine(targetDir, altExe)))
+                    {
+                        return Path.Combine(targetDir, altExe);
+                    }
+
+                    var anyExe = Directory.GetFiles(targetDir, "*.exe", SearchOption.AllDirectories).FirstOrDefault();
+                    return anyExe;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[ToolLauncherService] Failed to extract {toolKey}: {ex.Message}");
+                return null;
             }
         }
 
@@ -122,6 +207,21 @@ namespace DiagnoseTool
 
         public bool LaunchTool(string key, out string errorMessage)
         {
+            return LaunchToolInternal(key, directDonut: true, out errorMessage);
+        }
+
+        public bool LaunchFurMarkDirect(out string errorMessage)
+        {
+            return LaunchToolInternal("FurMark", directDonut: true, out errorMessage);
+        }
+
+        public bool LaunchFurMarkGui(out string errorMessage)
+        {
+            return LaunchToolInternal("FurMark", directDonut: false, out errorMessage);
+        }
+
+        private bool LaunchToolInternal(string key, bool directDonut, out string errorMessage)
+        {
             errorMessage = null;
             var tool = Tools.FirstOrDefault(t => t.Key == key);
             if (tool == null)
@@ -138,43 +238,48 @@ namespace DiagnoseTool
 
             try
             {
+                string targetPath = tool.Path;
                 string arguments = "";
+                string toolDir = Path.GetDirectoryName(tool.Path);
+
                 if (key == "FurMark")
                 {
-                    bool isFurMark2 = false;
-                    try
+                    if (directDonut)
                     {
-                        var versionInfo = FileVersionInfo.GetVersionInfo(tool.Path);
-                        string productName = versionInfo.ProductName ?? "";
-                        string fileVersion = versionInfo.FileVersion ?? "";
-                        isFurMark2 = productName.IndexOf("FurMark 2", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                     productName.IndexOf("FurMark2", StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                     fileVersion.StartsWith("2.") ||
-                                     Path.GetFileName(tool.Path).Equals("FurMark2.exe", StringComparison.OrdinalIgnoreCase);
-                    }
-                    catch
-                    {
-                        isFurMark2 = Path.GetFileName(tool.Path).Equals("FurMark2.exe", StringComparison.OrdinalIgnoreCase);
-                    }
-
-                    if (isFurMark2)
-                    {
-                        // FurMark 2: Run standard 1080p OpenGL donut stress test directly
-                        arguments = "--demo furmark-gl --p1080";
+                        // Direct start of the animated 3D Donut test without GUI launcher
+                        string cliExe = Path.Combine(toolDir, "furmark.exe");
+                        if (File.Exists(cliExe))
+                        {
+                            targetPath = cliExe;
+                            arguments = "--demo furmark-gl --width 1920 --height 1080";
+                        }
+                        else
+                        {
+                            // FurMark 1.x or GUI fallback
+                            arguments = "/nogui /width=1920 /height=1080 /run_stress";
+                        }
                     }
                     else
                     {
-                        // FurMark 1.x: Run standard 1080p donut stress test directly without GUI
-                        arguments = "/nogui /width=1920 /height=1080 /run_stress";
+                        // Open configuration GUI
+                        string guiExe = Path.Combine(toolDir, "FurMark_GUI.exe");
+                        if (File.Exists(guiExe))
+                        {
+                            targetPath = guiExe;
+                            arguments = "";
+                        }
+                        else
+                        {
+                            arguments = "";
+                        }
                     }
                 }
 
-
                 var startInfo = new ProcessStartInfo
                 {
-                    FileName = tool.Path,
+                    FileName = targetPath,
                     Arguments = arguments,
-                    WorkingDirectory = Path.GetDirectoryName(tool.Path),
+                    WorkingDirectory = toolDir,
                     UseShellExecute = true // Runs independently of our app
                 };
                 Process.Start(startInfo);
@@ -255,7 +360,8 @@ namespace DiagnoseTool
 
         private string GetConfigFilePath()
         {
-            string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, ConfigFileName);
+            string exeDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
+            string localPath = Path.Combine(exeDir, ConfigFileName);
             try
             {
                 if (File.Exists(localPath))
@@ -265,7 +371,7 @@ namespace DiagnoseTool
                 }
                 else
                 {
-                    string testFile = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "write_test.tmp");
+                    string testFile = Path.Combine(exeDir, "write_test.tmp");
                     File.WriteAllText(testFile, "test");
                     File.Delete(testFile);
                     return localPath;

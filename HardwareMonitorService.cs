@@ -671,7 +671,7 @@ namespace DiagnoseTool
                 if (IsPawnIoInstalled())
                     return;
 
-                string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                string baseDir = Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
                 string localInstaller = Path.Combine(baseDir, "PawnIO_setup.exe");
                 string tempInstaller = Path.Combine(Path.GetTempPath(), "PawnIO_setup.exe");
                 string installerPath = null;

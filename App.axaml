@@ -133,14 +133,66 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
-        <!-- Flat Custom Progress Bar Style -->
+        <!-- Modern Custom Progress Bar Style with high-contrast track & glowing indicator -->
         <Style Selector="ProgressBar.ModernProgressBar">
-            <Setter Property="Background" Value="#10131E" />
+            <Setter Property="Background" Value="#101420" />
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
-            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#222B3D" />
+            <Setter Property="Height" Value="8" />
+            <Setter Property="MinHeight" Value="4" />
             <Setter Property="MinWidth" Value="0" />
-            <Setter Property="Height" Value="6" />
-            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Template">
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            ClipToBounds="True"
+                            Height="{TemplateBinding Height}"
+                            MinWidth="0">
+                        <Border Name="PART_Indicator"
+                                Background="{TemplateBinding Foreground}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Stretch" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+
+        <!-- Core Progress Bar Style (Mini, for CPU Core Monitor tiles) -->
+        <Style Selector="ProgressBar.CoreProgressBar">
+            <Setter Property="Background" Value="#101420" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#222B3D" />
+            <Setter Property="Height" Value="5" />
+            <Setter Property="MinHeight" Value="3" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="CornerRadius" Value="2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ClipToBounds" Value="True" />
+            <Setter Property="Template">
+                <ControlTemplate TargetType="ProgressBar">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}"
+                            ClipToBounds="True"
+                            Height="{TemplateBinding Height}"
+                            MinWidth="0">
+                        <Border Name="PART_Indicator"
+                                Background="{TemplateBinding Foreground}"
+                                CornerRadius="{TemplateBinding CornerRadius}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Stretch" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
         </Style>
 
         <!-- ListBoxItem styling for battery log -->
@@ -165,7 +217,7 @@
         
         <Color x:Key="ColorTextPrimary">#F3F4F6</Color>
         <Color x:Key="ColorTextSecondary">#9CA3AF</Color>
-        <Color x:Key="ColorTextMuted">#4B5563</Color>
+        <Color x:Key="ColorTextMuted">#8A94A6</Color>
         
         <Color x:Key="ColorSuccess">#10B981</Color>
         <Color x:Key="ColorWarning">#F59E0B</Color>

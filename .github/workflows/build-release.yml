@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*'
+      - '2.0*'
+      - '[0-9]+.*'
 
 jobs:
   build-windows:
@@ -21,10 +23,10 @@ jobs:
         dotnet-version: '10.0.x'
 
     - name: Publish Windows x64
-      run: dotnet publish DiagnoseTool.csproj -c Release -r win-x64 -o .\publish\win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true
+      run: dotnet publish DiagnoseTool.csproj -c Release -r win-x64 -o .\publish\win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=true
 
     - name: Publish Windows arm64
-      run: dotnet publish DiagnoseTool.csproj -c Release -r win-arm64 -o .\publish\win-arm64 --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true
+      run: dotnet publish DiagnoseTool.csproj -c Release -r win-arm64 -o .\publish\win-arm64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:PublishReadyToRun=true
 
     - name: Prepare Windows Executables
       shell: pwsh

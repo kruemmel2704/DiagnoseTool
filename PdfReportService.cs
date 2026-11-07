@@ -21,11 +21,14 @@ namespace DiagnoseTool
             SystemInfo systemInfo,
             DateTime startTime,
             DateTime endTime,
-            List<LogDataPoint> dataPoints)
+            List<LogDataPoint> dataPoints,
+            string orderNumber = null)
         {
             // Create PDF Document
             var document = new PdfDocument();
-            document.Info.Title = "System Hardware Prüfbericht";
+            document.Info.Title = !string.IsNullOrEmpty(orderNumber)
+                ? $"System Hardware Prüfbericht - Auftrag {orderNumber}"
+                : "System Hardware Prüfbericht";
             document.Info.Author = "CPM Diagnose Tool";
             document.Info.Subject = "Hardware Diagnostics Log";
 
@@ -95,9 +98,19 @@ namespace DiagnoseTool
             // Column 2: Log Info
             var duration = endTime - startTime;
             gfx.DrawString("AUFZEICHNUNGSDATEN", fontSubHeading, new XSolidBrush(colorPrimary), 320, 128);
-            gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 144);
-            gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 158);
-            gfx.DrawString($"Messdauer:    {duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2} ({dataPoints.Count} Punkte)", fontBody, new XSolidBrush(colorDark), 320, 172);
+            if (!string.IsNullOrEmpty(orderNumber))
+            {
+                gfx.DrawString($"Auftrags-Nr.: {orderNumber}", fontBodyBold, new XSolidBrush(colorPrimary), 320, 144);
+                gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 158);
+                gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 172);
+                gfx.DrawString($"Messdauer:    {duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2} ({dataPoints.Count} Punkte)", fontBody, new XSolidBrush(colorDark), 320, 186);
+            }
+            else
+            {
+                gfx.DrawString($"Startzeit:    {startTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 144);
+                gfx.DrawString($"Endzeit:      {endTime:dd.MM.yyyy HH:mm:ss}", fontBody, new XSolidBrush(colorDark), 320, 158);
+                gfx.DrawString($"Messdauer:    {duration.Hours:D2}:{duration.Minutes:D2}:{duration.Seconds:D2} ({dataPoints.Count} Punkte)", fontBody, new XSolidBrush(colorDark), 320, 172);
+            }
 
             // --- 3. Section: Zusammenfassung (Statistiken) ---
             gfx.DrawString("ZUSAMMENFASSUNG DER MESSWERTE", fontHeading, new XSolidBrush(colorDark), 40, 265);

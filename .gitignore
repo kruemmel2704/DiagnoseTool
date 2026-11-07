@@ -13,3 +13,4 @@ publish/
 # Local configuration files
 tool_paths.txt
 *.app/
+tools/
