@@ -28,7 +28,7 @@ namespace DiagnoseTool
             AvaloniaXamlLoader.Load(this);
         }
 
-        private void Window_PointerPressed(object sender, PointerPressedEventArgs e)
+        private void TitleBar_PointerPressed(object sender, PointerPressedEventArgs e)
         {
             if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             {
@@ -41,6 +41,12 @@ namespace DiagnoseTool
                     this.BeginMoveDrag(e);
                 }
             }
+        }
+
+        private void Window_PointerPressed(object sender, PointerPressedEventArgs e)
+        {
+            // Retained for backward-compatibility if referenced
+            TitleBar_PointerPressed(sender, e);
         }
 
         private void MinimizeButton_Click(object sender, RoutedEventArgs e)

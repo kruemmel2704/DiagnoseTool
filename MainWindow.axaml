@@ -9,8 +9,7 @@
         Height="680" Width="1050"
         SystemDecorations="None" 
         Background="Transparent"
-        WindowStartupLocation="CenterScreen"
-        PointerPressed="Window_PointerPressed">
+        WindowStartupLocation="CenterScreen">
 
     <Border Name="WindowBorder" CornerRadius="12" Background="{DynamicResource BrushBgMain}" BorderBrush="#252A3C" BorderThickness="1.5" ClipToBounds="True">
         <Grid ColumnDefinitions="230,*">
@@ -20,7 +19,7 @@
                 <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="12,16">
 
                     <!-- Logo / Branding (Official CPM Vector Logo) -->
-                    <StackPanel Grid.Row="0" Orientation="Vertical" HorizontalAlignment="Center" Margin="0,10,0,20">
+                    <StackPanel Grid.Row="0" Orientation="Vertical" HorizontalAlignment="Center" Margin="0,10,0,20" Background="Transparent" PointerPressed="TitleBar_PointerPressed">
                         <Viewbox Width="120" Height="43" HorizontalAlignment="Center">
                             <Canvas Width="119.11" Height="42.75">
                                 <!-- Top part of C -->
@@ -55,7 +54,7 @@
                                      CommandParameter="0" />
                                      
                         <RadioButton Classes="SidebarButton" 
-                                     Content="Testing Tools" 
+                                     Content="GPU Stresstest" 
                                      IsChecked="{Binding IsToolsSelected, Mode=OneWay}"
                                      Command="{Binding SelectTabCommand}" 
                                      CommandParameter="1" 
@@ -140,7 +139,7 @@
             <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="20,16">
 
                 <!-- Header Bar (Title & Window Controls) -->
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20" Background="Transparent" PointerPressed="TitleBar_PointerPressed">
                     <StackPanel Grid.Column="0" Orientation="Vertical">
                         <TextBlock Text="Hardware Diagnostics &amp; Benchmarks" Classes="TextHeader"/>
                         <TextBlock Text="Real-time monitoring and fast execution of USB stress-testing utilities." Classes="TextSubheader" Margin="0,4,0,0"/>
@@ -585,123 +584,140 @@
                         </Border>
                     </Grid>
                     
-                    <!-- PAGE 1: BENCHMARK & TESTING TOOLS -->
-                    <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsToolsSelected}">
-                        <Border Grid.Row="0" Classes="CardStyle" Padding="16,12" Margin="0,0,0,16" Background="#0C0E14" BorderBrush="#1C1F2E">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <StackPanel>
-                                    <TextBlock Text="External Diagnostic &amp; Stress Tools" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentCyan}"/>
-                                    <TextBlock Text="Executables will be scanned in removable USB drives automatically. Override manually if they reside locally." Classes="TextMuted" Margin="0,2,0,0"/>
-                                </StackPanel>
-                                <Button Grid.Column="1" Classes="ModernButton" Content="Rescan USB Sticks" Command="{Binding RefreshUsbCommand}" Padding="12,6" VerticalAlignment="Center"/>
-                            </Grid>
-                        </Border>
+                    <!-- PAGE 1: GPU STRESSTEST (FURMARK) -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsToolsSelected}">
+                        <StackPanel Spacing="16">
+                            
+                            <!-- Header Card -->
+                            <Border Classes="CardStyle" Padding="16,14" Background="#0C0E14" BorderBrush="#1C1F2E">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Text="GPU STRESSTEST &amp; FURMARK" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                        <TextBlock Text="Hardwarenaher Belastungstest für die Grafikkarte zur Überprüfung von Stabilität, Kühlung und maximaler Leistungsaufnahme." Classes="TextMuted" Margin="0,3,0,0"/>
+                                    </StackPanel>
+                                    <Button Grid.Column="1" Classes="ModernButton" Content="USB neu scannen" Command="{Binding RefreshUsbCommand}" Padding="12,6" VerticalAlignment="Center"/>
+                                </Grid>
+                            </Border>
 
-                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
-                            <ItemsControl ItemsSource="{Binding Tools}">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Classes="CardStyle" Margin="0,0,0,12">
-                                            <Grid ColumnDefinitions="*,280">
+                            <!-- Live GPU Monitor Card -->
+                            <Border Classes="CardStyle" Background="#161923" BorderBrush="#222B3D">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="ERKANNTES GRAFIKSYSTEM" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                    
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                            <TextBlock Text="Grafikkarte" Classes="TextMuted" FontSize="11"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuName, TargetNullValue='Grafikkarte wird ermittelt...'}" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                        </StackPanel>
 
-                                                <!-- Left Side: Tool Information -->
-                                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
-                                                    <StackPanel Orientation="Horizontal">
-                                                        <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
-                                                        
-                                                        <!-- Status Tag -->
-                                                        <Border CornerRadius="4" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center"
-                                                                Classes.isFound="{Binding IsFound}">
-                                                            <Border.Styles>
-                                                                <Style Selector="Border">
-                                                                    <Setter Property="Background" Value="#10EF4444"/>
-                                                                </Style>
-                                                                <Style Selector="Border.isFound">
-                                                                    <Setter Property="Background" Value="#1010B981"/>
-                                                                </Style>
-                                                            </Border.Styles>
-                                                            <TextBlock Text="{Binding DisplayStatus}" FontSize="10" FontWeight="Bold"
-                                                                       Classes.isFound="{Binding IsFound}">
-                                                                <TextBlock.Styles>
-                                                                    <Style Selector="TextBlock">
-                                                                        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
-                                                                    </Style>
-                                                                    <Style Selector="TextBlock.isFound">
-                                                                        <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
-                                                                    </Style>
-                                                                </TextBlock.Styles>
-                                                            </TextBlock>
-                                                        </Border>
-                                                    </StackPanel>
-
-                                                    <TextBlock Text="{Binding Description}" Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,6,0,10"/>
-                                                    
-                                                    <!-- Path description -->
-                                                    <Grid ColumnDefinitions="Auto,*">
-                                                        <TextBlock Grid.Column="0" Text="Executable Path: " FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
-                                                        <TextBlock Grid.Column="1" Text="{Binding Path, TargetNullValue='(Not resolved)'}" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
-                                                    </Grid>
-                                                </StackPanel>
-
-                                                <!-- Right Side: Commands Panel -->
-                                                <Grid Grid.Column="1" RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" VerticalAlignment="Center">
-                                                    <!-- Standard tool launch (non-FurMark) -->
-                                                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
-                                                            Classes="PrimaryButton" 
-                                                            Content="TOOL STARTEN" 
-                                                            Command="{Binding $parent[Window].DataContext.LaunchCommand}" 
-                                                            CommandParameter="{Binding Key}"
-                                                            IsEnabled="{Binding IsFound}"
-                                                            Height="40" 
-                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                            Margin="0,0,0,8"
-                                                            IsVisible="{Binding !IsFurMark}"/>
-
-                                                    <!-- FurMark Direct Donut & GUI buttons -->
-                                                    <StackPanel Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Spacing="6" Margin="0,0,0,8" IsVisible="{Binding IsFurMark}">
-                                                        <Button Classes="PrimaryButton" 
-                                                                Content="🔥 DONUT STRESSTEST (DIREKT)" 
-                                                                Command="{Binding $parent[Window].DataContext.LaunchFurMarkDonutCommand}" 
-                                                                IsEnabled="{Binding IsFound}"
-                                                                Height="36" 
-                                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                                                        <Button Classes="ModernButton" 
-                                                                Content="⚙️ FurMark Einstellungen (GUI)" 
-                                                                Command="{Binding $parent[Window].DataContext.LaunchFurMarkGuiCommand}" 
-                                                                IsEnabled="{Binding IsFound}"
-                                                                Height="30" 
-                                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
-                                                    </StackPanel>
-
-                                                    <!-- Browse Override -->
-                                                    <Button Grid.Row="1" Grid.Column="0" 
-                                                            Classes="ModernButton" 
-                                                            Content="Browse..." 
-                                                            Command="{Binding $parent[Window].DataContext.BrowseCommand}" 
-                                                            CommandParameter="{Binding Key}"
-                                                            FontSize="11" 
-                                                            Padding="0,8"
-                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                            Margin="0,0,4,0"/>
-
-                                                    <!-- Clear / Auto -->
-                                                    <Button Grid.Row="1" Grid.Column="1" 
-                                                            Classes="ModernButton" 
-                                                            Content="Reset Auto" 
-                                                            Command="{Binding $parent[Window].DataContext.ClearPathCommand}" 
-                                                            CommandParameter="{Binding Key}"
-                                                            FontSize="11" 
-                                                            Padding="0,8"
-                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
-                                                            Margin="4,0,0,0"/>
-                                                </Grid>
-                                            </Grid>
+                                        <Border Grid.Column="1" Background="#0C0E14" BorderBrush="#1C2130" BorderThickness="1" CornerRadius="8" Padding="14,8" Margin="12,0,0,0">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="GPU TEMPERATUR" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Diagnostics.GpuTempDisplay}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                            </StackPanel>
                                         </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                        </ScrollViewer>
-                    </Grid>
+
+                                        <Border Grid.Column="2" Background="#0C0E14" BorderBrush="#1C2130" BorderThickness="1" CornerRadius="8" Padding="14,8" Margin="12,0,0,0">
+                                            <StackPanel HorizontalAlignment="Center">
+                                                <TextBlock Text="GPU AUSLASTUNG" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" HorizontalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Diagnostics.GpuLoadDisplay}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" HorizontalAlignment="Center" Margin="0,2,0,0"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- FurMark Test Launch Options -->
+                            <Grid ColumnDefinitions="*,*">
+                                
+                                <!-- Option 1: Direct 3D Donut Stress -->
+                                <Border Grid.Column="0" Classes="CardStyle" Margin="0,0,8,0" Background="#161923" BorderBrush="#222B3D">
+                                    <Grid RowDefinitions="Auto,*,Auto">
+                                        <StackPanel Grid.Row="0" Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Grid.Column="0" Text="3D-DONUT TEST" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                                <Border Grid.Column="1" Background="#20EF4444" CornerRadius="4" Padding="6,2">
+                                                    <TextBlock Text="Empfohlen" FontSize="10" FontWeight="Bold" Foreground="#EF4444"/>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock Text="Direktstart Belastungstest" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                            <TextBlock Text="Startet sofort den bekannten, extrem fordernden FurMark 3D-Donut im Vollbild (OpenGL, 1080p). Maximale Shader-Last zur Prüfung thermischer Drosselung und Stabilität." 
+                                                       Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Row="2" Classes="PrimaryButton" 
+                                                Content="🔥 DONUT STRESSTEST (DIREKT)" 
+                                                Command="{Binding LaunchFurMarkDonutCommand}" 
+                                                IsEnabled="{Binding IsFurMarkFound}"
+                                                Height="42" 
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Option 2: FurMark GUI / Settings -->
+                                <Border Grid.Column="1" Classes="CardStyle" Margin="8,0,0,0" Background="#161923" BorderBrush="#222B3D">
+                                    <Grid RowDefinitions="Auto,*,Auto">
+                                        <StackPanel Grid.Row="0" Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Grid.Column="0" Text="KONFIGURATION &amp; BENCHMARK" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                                <Border Grid.Column="1" Background="#2000E5FF" CornerRadius="4" Padding="6,2">
+                                                    <TextBlock Text="Expertenmodus" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                                </Border>
+                                            </Grid>
+                                            <TextBlock Text="FurMark Einstellungen (GUI)" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                            <TextBlock Text="Öffnet das vollständige FurMark-Hauptfenster für individuelle Auflösungen, Multi-GPU-Tests, Artefakt-Scanner, Anti-Aliasing (MSAA) oder integrierte Score-Benchmarks." 
+                                                       Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,4,0,16"/>
+                                        </StackPanel>
+
+                                        <Button Grid.Row="2" Classes="ModernButton" 
+                                                Content="⚙️ FurMark Einstellungen (GUI) öffnen" 
+                                                Command="{Binding LaunchFurMarkGuiCommand}" 
+                                                IsEnabled="{Binding IsFurMarkFound}"
+                                                Height="42" 
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+
+                            <!-- FurMark Executable / Path Status Card -->
+                            <Border Classes="CardStyle" Background="#0C0E14" BorderBrush="#1C1F2E">
+                                <Grid ColumnDefinitions="*,Auto">
+                                    <StackPanel Grid.Column="0" Spacing="4" VerticalAlignment="Center">
+                                        <StackPanel Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="FurMark Status:" Classes="TextMuted" FontSize="11" VerticalAlignment="Center"/>
+                                            <Border CornerRadius="4" Padding="6,2" VerticalAlignment="Center" Classes.isFound="{Binding IsFurMarkFound}">
+                                                <Border.Styles>
+                                                    <Style Selector="Border">
+                                                        <Setter Property="Background" Value="#15EF4444"/>
+                                                    </Style>
+                                                    <Style Selector="Border.isFound">
+                                                        <Setter Property="Background" Value="#1510B981"/>
+                                                    </Style>
+                                                </Border.Styles>
+                                                <TextBlock Text="{Binding FurMarkTool.DisplayStatus, TargetNullValue='Eingebettet / Bereit'}" FontSize="10" FontWeight="Bold" Classes.isFound="{Binding IsFurMarkFound}">
+                                                    <TextBlock.Styles>
+                                                        <Style Selector="TextBlock">
+                                                            <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+                                                        </Style>
+                                                        <Style Selector="TextBlock.isFound">
+                                                            <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+                                                        </Style>
+                                                    </TextBlock.Styles>
+                                                </TextBlock>
+                                            </Border>
+                                        </StackPanel>
+                                        <TextBlock Text="{Binding FurMarkTool.Path, TargetNullValue='(Wird bei Bedarf automatisch extrahiert)'}" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                    </StackPanel>
+
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                        <Button Classes="ModernButton" Content="Durchsuchen..." Command="{Binding BrowseCommand}" CommandParameter="FurMark" FontSize="11" Padding="12,6"/>
+                                        <Button Classes="ModernButton" Content="Zurücksetzen" Command="{Binding ClearPathCommand}" CommandParameter="FurMark" FontSize="11" Padding="12,6"/>
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
                     
                     <!-- PAGE 2: SYSTEM REPAIR -->
                     <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsRepairSelected}">
@@ -1124,13 +1140,10 @@
                                         <!-- Duration Selector -->
                                         <StackPanel Spacing="6">
                                             <TextBlock Text="Testdauer:" Classes="TextMuted"/>
-                                            <ComboBox SelectedIndex="{Binding CpuStressSelectedDurationIndex}" IsEnabled="{Binding !IsCpuStressRunning}" HorizontalAlignment="Stretch" Background="#0C0E14" BorderBrush="#1C1F2E">
-                                                <ComboBoxItem Content="30 Sekunden"/>
-                                                <ComboBoxItem Content="1 Minute"/>
-                                                <ComboBoxItem Content="5 Minuten"/>
-                                                <ComboBoxItem Content="10 Minuten"/>
-                                                <ComboBoxItem Content="Unbegrenzt"/>
-                                            </ComboBox>
+                                            <ComboBox ItemsSource="{Binding StressDurationOptions}"
+                                                      SelectedIndex="{Binding CpuStressSelectedDurationIndex}"
+                                                      IsEnabled="{Binding !IsCpuStressRunning}"
+                                                      HorizontalAlignment="Stretch"/>
                                         </StackPanel>
 
                                         <!-- Start/Stop Buttons -->
@@ -1325,13 +1338,10 @@
                                         <!-- Duration Selector -->
                                         <StackPanel Spacing="6">
                                             <TextBlock Text="Testdauer:" Classes="TextMuted"/>
-                                            <ComboBox SelectedIndex="{Binding RamStressSelectedDurationIndex}" IsEnabled="{Binding !IsRamStressRunning}" HorizontalAlignment="Stretch" Background="#0C0E14" BorderBrush="#1C1F2E">
-                                                <ComboBoxItem Content="30 Sekunden"/>
-                                                <ComboBoxItem Content="1 Minute"/>
-                                                <ComboBoxItem Content="5 Minuten"/>
-                                                <ComboBoxItem Content="10 Minuten"/>
-                                                <ComboBoxItem Content="Unbegrenzt"/>
-                                            </ComboBox>
+                                            <ComboBox ItemsSource="{Binding StressDurationOptions}"
+                                                      SelectedIndex="{Binding RamStressSelectedDurationIndex}"
+                                                      IsEnabled="{Binding !IsRamStressRunning}"
+                                                      HorizontalAlignment="Stretch"/>
                                         </StackPanel>
 
                                         <!-- Start/Stop Buttons -->

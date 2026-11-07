@@ -140,8 +140,27 @@ namespace DiagnoseTool
         public List<TestTool> Tools
         {
             get => _tools;
-            set => SetProperty(ref _tools, value);
+            set
+            {
+                if (SetProperty(ref _tools, value))
+                {
+                    OnPropertyChanged(nameof(FurMarkTool));
+                    OnPropertyChanged(nameof(IsFurMarkFound));
+                }
+            }
         }
+
+        public TestTool FurMarkTool => _tools?.FirstOrDefault(t => t.Key == "FurMark");
+        public bool IsFurMarkFound => FurMarkTool?.IsFound ?? false;
+
+        public List<string> StressDurationOptions { get; } = new List<string>
+        {
+            "30 Sekunden",
+            "1 Minute",
+            "5 Minuten",
+            "10 Minuten",
+            "Unbegrenzt"
+        };
 
         public string CurrentTime
         {
@@ -158,6 +177,7 @@ namespace DiagnoseTool
                 {
                     OnPropertyChanged(nameof(IsDashboardSelected));
                     OnPropertyChanged(nameof(IsToolsSelected));
+                    OnPropertyChanged(nameof(IsGpuStressSelected));
                     OnPropertyChanged(nameof(IsRepairSelected));
                     OnPropertyChanged(nameof(IsInfoSelected));
                     OnPropertyChanged(nameof(IsBatteryTestSelected));
@@ -169,6 +189,7 @@ namespace DiagnoseTool
 
         public bool IsDashboardSelected => SelectedTab == 0;
         public bool IsToolsSelected => SelectedTab == 1;
+        public bool IsGpuStressSelected => SelectedTab == 1;
         public bool IsRepairSelected => SelectedTab == 2;
         public bool IsInfoSelected => SelectedTab == 3;
         public bool IsBatteryTestSelected => SelectedTab == 4;
