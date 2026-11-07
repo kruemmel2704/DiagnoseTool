@@ -26,6 +26,7 @@ namespace DiagnoseTool
         
         // Recording states
         private bool _isRecording = false;
+        private bool _isPromptingOrder = false;
         private DateTime _recordingStartTime;
         private readonly List<LogDataPoint> _recordedData = new List<LogDataPoint>();
         private string _recordingTimeDisplay = "00:00:00";
@@ -372,6 +373,7 @@ namespace DiagnoseTool
                 if (SetProperty(ref _isRecording, value))
                 {
                     OnPropertyChanged(nameof(IsNotRecording));
+                    OnPropertyChanged(nameof(ShowOrderNumberInfo));
                 }
             }
         }
@@ -471,6 +473,12 @@ namespace DiagnoseTool
         public RelayCommand LaunchFurMarkDonutCommand { get; }
         public RelayCommand LaunchFurMarkGuiCommand { get; }
 
+        public bool HasOrderNumber => !string.IsNullOrWhiteSpace(_orderNumber);
+
+        public string OrderNumberDisplay => string.IsNullOrWhiteSpace(_orderNumber) ? "Keine Auftrags-Nr." : _orderNumber;
+
+        public bool ShowOrderNumberInfo => IsRecording || HasOrderNumber;
+
         public string OrderNumber
         {
             get => _orderNumber;
@@ -478,6 +486,9 @@ namespace DiagnoseTool
             {
                 if (SetProperty(ref _orderNumber, value))
                 {
+                    OnPropertyChanged(nameof(HasOrderNumber));
+                    OnPropertyChanged(nameof(OrderNumberDisplay));
+                    OnPropertyChanged(nameof(ShowOrderNumberInfo));
                     if (IsOnlineMonitoringActive)
                     {
                         System.Threading.Tasks.Task.Run(() => LhmHttpServer.RegisterWithHardwareCheckAsync(_orderNumber));
@@ -766,8 +777,34 @@ namespace DiagnoseTool
             }
         }
 
-        private void ExecuteStartRecording()
+        private async void ExecuteStartRecording()
         {
+            if (IsRecording || _isPromptingOrder) return;
+
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
+            {
+                _isPromptingOrder = true;
+                bool confirmed;
+                OrderNumberDialog dialog;
+                try
+                {
+                    dialog = new OrderNumberDialog(OrderNumber);
+                    confirmed = await dialog.ShowDialog<bool>(desktop.MainWindow);
+                }
+                finally
+                {
+                    _isPromptingOrder = false;
+                }
+
+                if (!confirmed)
+                {
+                    // User cancelled the prompt dialog
+                    return;
+                }
+
+                OrderNumber = dialog.EnteredOrderNumber?.Trim() ?? string.Empty;
+            }
+
             _recordedData.Clear();
             _recordingStartTime = DateTime.Now;
             IsRecording = true;
@@ -777,7 +814,14 @@ namespace DiagnoseTool
             // Start LHM Online Monitoring Server on port 8085 and register with /Hardware-Check
             StartOnlineMonitoring();
 
-            ShowStatus("Werte-Aufzeichnung & LHM Online-Monitoring (Port 8085) gestartet.", false);
+            if (!string.IsNullOrWhiteSpace(OrderNumber))
+            {
+                ShowStatus($"Werte-Aufzeichnung für Auftrag '{OrderNumber}' gestartet.", false);
+            }
+            else
+            {
+                ShowStatus("Werte-Aufzeichnung & LHM Online-Monitoring (Port 8085) gestartet.", false);
+            }
         }
 
         private async void ExecuteStopRecording()

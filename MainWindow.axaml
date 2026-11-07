@@ -232,11 +232,14 @@
                                     <StackPanel>
                                         <TextBlock Text="MESSWERTE-AUFZEICHNUNG" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="11" Margin="0,0,0,10"/>
                                         
-                                        <!-- Auftragsnummer Input -->
-                                        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
-                                            <TextBlock Text="Auftrags-Nr:" Classes="TextMuted" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
-                                            <TextBox Text="{Binding OrderNumber}" Watermark="z. B. 2026-4012" FontSize="11" Height="28" Padding="8,4" Background="#0C0E14" BorderBrush="#222B3D" Foreground="{DynamicResource BrushTextPrimary}"/>
-                                        </Grid>
+                                        <!-- Aktive Auftragsnummer (Info-Anzeige während Aufzeichnung oder wenn festgelegt) -->
+                                        <Border Background="#0C0E14" BorderBrush="#1C2130" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,0,0,10"
+                                                IsVisible="{Binding ShowOrderNumberInfo}">
+                                            <Grid ColumnDefinitions="Auto,*">
+                                                <TextBlock Grid.Column="0" Text="Auftrag:" Classes="TextMuted" VerticalAlignment="Center" Margin="0,0,8,0" FontSize="11"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding OrderNumberDisplay}" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" FontSize="11" TextTrimming="CharacterEllipsis"/>
+                                            </Grid>
+                                        </Border>
 
                                         <!-- Online Monitoring API Status -->
                                         <Border Background="#0C0E14" BorderBrush="#1C2130" BorderThickness="1" CornerRadius="6" Padding="8,5" Margin="0,0,0,10">

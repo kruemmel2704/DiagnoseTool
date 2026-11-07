@@ -1,0 +1,98 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="DiagnoseTool.OrderNumberDialog"
+        Title="Auftragsnummer erfassen"
+        Width="440" Height="255"
+        WindowStartupLocation="CenterOwner"
+        SystemDecorations="None"
+        Background="Transparent"
+        CanResize="False"
+        ShowInTaskbar="False">
+
+    <Border CornerRadius="12" 
+            Background="{DynamicResource BrushBgMain}" 
+            BorderBrush="#252A3C" 
+            BorderThickness="1.5" 
+            BoxShadow="0 10 32 0 #80000000" 
+            ClipToBounds="True">
+        <Grid RowDefinitions="Auto,*,Auto">
+            
+            <!-- Header bar / Drag handle -->
+            <Border Grid.Row="0" Background="#121520" BorderBrush="#1C1E27" BorderThickness="0,0,0,1" Padding="16,10"
+                    PointerPressed="Header_PointerPressed">
+                <Grid ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+                        <!-- Clipboard/Report Icon -->
+                        <Path Fill="{DynamicResource BrushAccentCyan}" 
+                              Data="M6,2A2,2 0 0,0 4,4V20A2,2 0 0,0 6,22H18A2,2 0 0,0 20,20V8L14,2H6M6,4H13V9H18V20H6V4M8,12V14H16V12H8M8,16V18H13V16H8Z" 
+                              Width="14" Height="14" Stretch="Uniform" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                        <TextBlock Text="MESSWERTE-AUFZEICHNUNG" 
+                                   FontWeight="Bold" 
+                                   FontSize="11" 
+                                   Foreground="{DynamicResource BrushAccentCyan}" 
+                                   VerticalAlignment="Center"/>
+                    </StackPanel>
+
+                    <!-- Close button -->
+                    <Button Grid.Column="1" Click="CancelButton_Click" 
+                            Width="26" Height="26" 
+                            Background="Transparent" 
+                            BorderThickness="0" 
+                            Cursor="Hand">
+                        <Button.Styles>
+                            <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+                            </Style>
+                        </Button.Styles>
+                        <Path Data="M 6 6 L 18 18 M 6 18 L 18 6" Stroke="{DynamicResource BrushTextPrimary}" StrokeThickness="2" Width="9" Height="9" Stretch="Fill"/>
+                    </Button>
+                </Grid>
+            </Border>
+
+            <!-- Content Area -->
+            <StackPanel Grid.Row="1" Margin="24,18,24,12" VerticalAlignment="Center">
+                <TextBlock Text="Auftragsnummer erfassen" 
+                           FontWeight="Bold" 
+                           FontSize="15" 
+                           Foreground="{DynamicResource BrushTextPrimary}" 
+                           Margin="0,0,0,6"/>
+                <TextBlock Text="Bitte gib die Auftragsnummer für diesen Prüflauf und den PDF-Bericht ein:" 
+                           FontSize="12" 
+                           Classes="TextMuted" 
+                           TextWrapping="Wrap" 
+                           Margin="0,0,0,12"/>
+                
+                <TextBox Name="OrderNumberTextBox" 
+                         Watermark="z. B. 2026-4012 (optional)" 
+                         FontSize="13" 
+                         Height="34" 
+                         Padding="10,6" 
+                         Background="#0C0E14" 
+                         BorderBrush="#2A344D" 
+                         CornerRadius="6" 
+                         Foreground="{DynamicResource BrushTextPrimary}"/>
+            </StackPanel>
+
+            <!-- Actions / Footer -->
+            <Border Grid.Row="2" Background="#0C0E14" BorderBrush="#1C1E27" BorderThickness="0,1,0,0" Padding="20,12">
+                <Grid ColumnDefinitions="*,Auto,Auto">
+                    <TextBlock Grid.Column="0" Text="Enter = Starten  |  Esc = Abbrechen" Classes="TextMuted" FontSize="11" VerticalAlignment="Center"/>
+                    <Button Grid.Column="1" 
+                            Classes="ModernButton" 
+                            Content="Abbrechen" 
+                            Click="CancelButton_Click" 
+                            Height="34" 
+                            Padding="16,6"
+                            Margin="0,0,10,0"/>
+                    <Button Grid.Column="2" 
+                            Classes="PrimaryButton" 
+                            Content="Aufzeichnung starten" 
+                            Click="StartButton_Click" 
+                            Height="34" 
+                            Padding="16,6"/>
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</Window>
+
