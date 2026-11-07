@@ -11,14 +11,14 @@
 
     <Border CornerRadius="12" 
             Background="{DynamicResource BrushBgMain}" 
-            BorderBrush="#252A3C" 
+            BorderBrush="#CBD5E1" 
             BorderThickness="1.5" 
-            BoxShadow="0 10 32 0 #80000000" 
+            BoxShadow="0 8 30 0 #1A000000" 
             ClipToBounds="True">
         <Grid RowDefinitions="Auto,*,Auto">
             
             <!-- Header bar / Drag handle -->
-            <Border Grid.Row="0" Background="#121520" BorderBrush="#1C1E27" BorderThickness="0,0,0,1" Padding="16,10"
+            <Border Grid.Row="0" Background="#F1F5F9" BorderBrush="#E2E8F0" BorderThickness="0,0,0,1" Padding="16,10"
                     PointerPressed="Header_PointerPressed">
                 <Grid ColumnDefinitions="*,Auto">
                     <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
@@ -41,7 +41,7 @@
                             Cursor="Hand">
                         <Button.Styles>
                             <Style Selector="Button:pointerover /template/ ContentPresenter">
-                                <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+                                <Setter Property="Background" Value="#FEE2E2"/>
                             </Style>
                         </Button.Styles>
                         <Path Data="M 6 6 L 18 18 M 6 18 L 18 6" Stroke="{DynamicResource BrushTextPrimary}" StrokeThickness="2" Width="9" Height="9" Stretch="Fill"/>
@@ -67,14 +67,14 @@
                          FontSize="13" 
                          Height="34" 
                          Padding="10,6" 
-                         Background="#0C0E14" 
-                         BorderBrush="#2A344D" 
+                         Background="#FFFFFF" 
+                         BorderBrush="#CBD5E1" 
                          CornerRadius="6" 
                          Foreground="{DynamicResource BrushTextPrimary}"/>
             </StackPanel>
 
             <!-- Actions / Footer -->
-            <Border Grid.Row="2" Background="#0C0E14" BorderBrush="#1C1E27" BorderThickness="0,1,0,0" Padding="20,12">
+            <Border Grid.Row="2" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="0,1,0,0" Padding="20,12">
                 <Grid ColumnDefinitions="*,Auto,Auto">
                     <TextBlock Grid.Column="0" Text="Enter = Starten  |  Esc = Abbrechen" Classes="TextMuted" FontSize="11" VerticalAlignment="Center"/>
                     <Button Grid.Column="1" 
@@ -95,4 +95,3 @@
         </Grid>
     </Border>
 </Window>
-

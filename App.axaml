@@ -1,7 +1,7 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              x:Class="DiagnoseTool.App"
-             RequestedThemeVariant="Dark">
+             RequestedThemeVariant="Light">
     <Application.Styles>
         <FluentTheme />
         
@@ -33,32 +33,32 @@
             <Setter Property="Background" Value="{DynamicResource BrushBgCard}" />
             <Setter Property="CornerRadius" Value="10" />
             <Setter Property="Padding" Value="16" />
-            <Setter Property="BoxShadow" Value="0 3 15 0 #4D000000" />
+            <Setter Property="BoxShadow" Value="0 2 8 0 #0F000000" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#222636" />
+            <Setter Property="BorderBrush" Value="#E2E8F0" />
         </Style>
 
         <!-- Modern Round Buttons -->
         <Style Selector="Button.ModernButton">
-            <Setter Property="Background" Value="#1D2436" />
+            <Setter Property="Background" Value="#F1F5F9" />
             <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
             <Setter Property="Padding" Value="16,10" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="13" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#313952" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="CornerRadius" Value="8" />
             <Setter Property="HorizontalAlignment" Value="Center" />
             <Setter Property="VerticalAlignment" Value="Center" />
         </Style>
         <Style Selector="Button.ModernButton:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#2A344D" />
+            <Setter Property="Background" Value="#E2E8F0" />
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}" />
             <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
         </Style>
         <Style Selector="Button.ModernButton:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#151A29" />
+            <Setter Property="Background" Value="#CBD5E1" />
             <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}" />
             <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
         </Style>
@@ -66,10 +66,10 @@
             <Setter Property="Opacity" Value="0.4" />
         </Style>
 
-        <!-- Primary Action Button (Glowing Accent) -->
+        <!-- Primary Action Button -->
         <Style Selector="Button.PrimaryButton">
             <Setter Property="Background" Value="{DynamicResource BrushAccentCyan}" />
-            <Setter Property="Foreground" Value="#08090E" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
             <Setter Property="Padding" Value="16,10" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="13" />
@@ -78,13 +78,13 @@
             <Setter Property="CornerRadius" Value="8" />
         </Style>
         <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#40EFFF" />
-            <Setter Property="Foreground" Value="#08090E" />
-            <Setter Property="BoxShadow" Value="0 0 12 0 #8000E5FF" />
+            <Setter Property="Background" Value="#0E7490" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
+            <Setter Property="BoxShadow" Value="0 2 8 0 #330891B2" />
         </Style>
         <Style Selector="Button.PrimaryButton:pressed /template/ ContentPresenter">
-            <Setter Property="Background" Value="#00C4DB" />
-            <Setter Property="Foreground" Value="#08090E" />
+            <Setter Property="Background" Value="#155E75" />
+            <Setter Property="Foreground" Value="#FFFFFF" />
         </Style>
         <Style Selector="Button.PrimaryButton:disabled">
             <Setter Property="Opacity" Value="0.4" />
@@ -117,13 +117,13 @@
             </Setter>
         </Style>
         <Style Selector="RadioButton.SidebarButton:pointerover /template/ Border#bgBorder">
-            <Setter Property="Background" Value="#1A1C24" />
+            <Setter Property="Background" Value="#F1F5F9" />
         </Style>
         <Style Selector="RadioButton.SidebarButton:pointerover">
             <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
         </Style>
         <Style Selector="RadioButton.SidebarButton:checked /template/ Border#bgBorder">
-            <Setter Property="Background" Value="#161923" />
+            <Setter Property="Background" Value="#E0F2FE" />
         </Style>
         <Style Selector="RadioButton.SidebarButton:checked /template/ Border#indicator">
             <Setter Property="IsVisible" Value="True" />
@@ -133,12 +133,12 @@
             <Setter Property="FontWeight" Value="SemiBold" />
         </Style>
 
-        <!-- Modern Custom Progress Bar Style with high-contrast track & glowing indicator -->
+        <!-- Modern Custom Progress Bar Style -->
         <Style Selector="ProgressBar.ModernProgressBar">
-            <Setter Property="Background" Value="#101420" />
+            <Setter Property="Background" Value="#E2E8F0" />
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#222B3D" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
             <Setter Property="Height" Value="8" />
             <Setter Property="MinHeight" Value="4" />
             <Setter Property="MinWidth" Value="0" />
@@ -166,10 +166,10 @@
 
         <!-- Core Progress Bar Style (Mini, for CPU Core Monitor tiles) -->
         <Style Selector="ProgressBar.CoreProgressBar">
-            <Setter Property="Background" Value="#101420" />
+            <Setter Property="Background" Value="#E2E8F0" />
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="BorderBrush" Value="#222B3D" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
             <Setter Property="Height" Value="5" />
             <Setter Property="MinHeight" Value="3" />
             <Setter Property="MinWidth" Value="0" />
@@ -206,9 +206,9 @@
 
         <!-- ComboBox styling -->
         <Style Selector="ComboBox">
-            <Setter Property="Background" Value="#121520" />
+            <Setter Property="Background" Value="#FFFFFF" />
             <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
-            <Setter Property="BorderBrush" Value="#2A344D" />
+            <Setter Property="BorderBrush" Value="#CBD5E1" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="6" />
             <Setter Property="Padding" Value="10,6" />
@@ -221,32 +221,32 @@
             <Setter Property="FontSize" Value="12" />
         </Style>
         <Style Selector="ComboBoxItem:pointerover /template/ ContentPresenter">
-            <Setter Property="Background" Value="#1E2436" />
+            <Setter Property="Background" Value="#F1F5F9" />
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
         </Style>
         <Style Selector="ComboBoxItem:selected /template/ ContentPresenter">
-            <Setter Property="Background" Value="#252F47" />
+            <Setter Property="Background" Value="#E0F2FE" />
             <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
         </Style>
     </Application.Styles>
 
     <Application.Resources>
-        <!-- Palette Colors -->
-        <Color x:Key="ColorBgMain">#0F111A</Color>
-        <Color x:Key="ColorBgSidebar">#08090E</Color>
-        <Color x:Key="ColorBgCard">#161923</Color>
-        <Color x:Key="ColorBgCardHover">#1E2230</Color>
+        <!-- Palette Colors (Light Theme) -->
+        <Color x:Key="ColorBgMain">#F8FAFC</Color>
+        <Color x:Key="ColorBgSidebar">#FFFFFF</Color>
+        <Color x:Key="ColorBgCard">#FFFFFF</Color>
+        <Color x:Key="ColorBgCardHover">#F1F5F9</Color>
         
-        <Color x:Key="ColorAccentCyan">#00E5FF</Color>
-        <Color x:Key="ColorAccentPurple">#A855F7</Color>
+        <Color x:Key="ColorAccentCyan">#0891B2</Color>
+        <Color x:Key="ColorAccentPurple">#9333EA</Color>
         
-        <Color x:Key="ColorTextPrimary">#F3F4F6</Color>
-        <Color x:Key="ColorTextSecondary">#9CA3AF</Color>
-        <Color x:Key="ColorTextMuted">#8A94A6</Color>
+        <Color x:Key="ColorTextPrimary">#0F172A</Color>
+        <Color x:Key="ColorTextSecondary">#475569</Color>
+        <Color x:Key="ColorTextMuted">#64748B</Color>
         
-        <Color x:Key="ColorSuccess">#10B981</Color>
-        <Color x:Key="ColorWarning">#F59E0B</Color>
-        <Color x:Key="ColorDanger">#EF4444</Color>
+        <Color x:Key="ColorSuccess">#16A34A</Color>
+        <Color x:Key="ColorWarning">#D97706</Color>
+        <Color x:Key="ColorDanger">#DC2626</Color>
 
         <!-- Brushes -->
         <SolidColorBrush x:Key="BrushBgMain" Color="{StaticResource ColorBgMain}" />
