@@ -13,13 +13,15 @@ namespace DiagnoseTool
         public uint DesignCapacity { get; set; } // in mWh
         public uint FullChargeCapacity { get; set; } // in mWh
         public double HealthPercent { get; set; } = 100.0;
-        
+
         // Real-time properties
         public double CurrentChargePercent { get; set; } // 0 - 100
         public bool IsConnectedToAc { get; set; }
         public bool IsCharging { get; set; }
         public int RemainingTimeSeconds { get; set; } // -1 if unknown/charging
-        
+        public double Voltage { get; set; }
+        public double ChargeRateWatts { get; set; }
+
         public string ChargingStatusDisplay
         {
             get
@@ -27,12 +29,14 @@ namespace DiagnoseTool
                 if (!IsPresent) return "Keine Batterie erkannt";
                 if (IsConnectedToAc)
                 {
-                    return IsCharging ? "Wird geladen" : "Netzbetrieb (Voll / Nicht ladend)";
+                    if (IsCharging)
+                        return ChargeRateWatts > 0.1 ? $"Wird geladen ({ChargeRateWatts:F1} W)" : "Wird geladen";
+                    return "Netzbetrieb (Voll / Nicht ladend)";
                 }
-                return "Entlädt sich";
+                return ChargeRateWatts > 0.1 ? $"Entlädt sich ({ChargeRateWatts:F1} W)" : "Entlädt sich";
             }
         }
-        
+
         public string RemainingTimeDisplay
         {
             get
@@ -44,10 +48,10 @@ namespace DiagnoseTool
                 return string.Format("{0:D2} Std. {1:D2} Min.", t.Hours + t.Days * 24, t.Minutes);
             }
         }
-        
+
         public string HealthDisplay => IsPresent ? $"{HealthPercent:F1} %" : "--";
-        public string DesignCapacityDisplay => IsPresent ? $"{DesignCapacity:N0} mWh" : "--";
-        public string FullChargeCapacityDisplay => IsPresent ? $"{FullChargeCapacity:N0} mWh" : "--";
+        public string DesignCapacityDisplay => IsPresent && DesignCapacity > 0 ? $"{DesignCapacity:N0} mWh" : "--";
+        public string FullChargeCapacityDisplay => IsPresent && FullChargeCapacity > 0 ? $"{FullChargeCapacity:N0} mWh" : "--";
     }
 
     public static class BatteryService
@@ -65,10 +69,10 @@ namespace DiagnoseTool
             public int BatteryFullLifeTime;
         }
 
-        public static BatteryInfo GetBatteryInfo()
+        public static BatteryInfo GetBatteryInfo(LhmBatteryData lhmBattery = null)
         {
             var info = new BatteryInfo();
-            
+
             // 1. Get real-time status using P/Invoke GetSystemPowerStatus
             if (GetSystemPowerStatus(out SystemPowerStatus status))
             {
@@ -82,7 +86,7 @@ namespace DiagnoseTool
                 {
                     info.IsPresent = false;
                 }
-                
+
                 info.IsConnectedToAc = status.ACLineStatus == 1;
                 info.IsCharging = (status.BatteryFlag & 8) != 0;
                 info.RemainingTimeSeconds = status.BatteryLifeTime;
@@ -92,12 +96,51 @@ namespace DiagnoseTool
                 info.IsPresent = false;
             }
 
+            // 2. Enrich with LibreHardwareMonitor Battery hardware sensors if available
+            if (lhmBattery != null && lhmBattery.IsFound)
+            {
+                info.IsPresent = true;
+
+                if (!string.IsNullOrWhiteSpace(lhmBattery.Name))
+                    info.DeviceName = lhmBattery.Name;
+
+                if (lhmBattery.ChargeLevel.HasValue && lhmBattery.ChargeLevel.Value > 0)
+                    info.CurrentChargePercent = lhmBattery.ChargeLevel.Value;
+
+                if (lhmBattery.DesignCapacityMWh.HasValue && lhmBattery.DesignCapacityMWh.Value > 0)
+                    info.DesignCapacity = (uint)Math.Round(lhmBattery.DesignCapacityMWh.Value);
+
+                if (lhmBattery.FullChargeCapacityMWh.HasValue && lhmBattery.FullChargeCapacityMWh.Value > 0)
+                    info.FullChargeCapacity = (uint)Math.Round(lhmBattery.FullChargeCapacityMWh.Value);
+
+                if (lhmBattery.DegradationLevel.HasValue && lhmBattery.DegradationLevel.Value >= 0 && lhmBattery.DegradationLevel.Value <= 100)
+                {
+                    info.HealthPercent = Math.Max(0.0, Math.Min(100.0, 100.0 - lhmBattery.DegradationLevel.Value));
+                }
+                else if (info.DesignCapacity > 0 && info.FullChargeCapacity > 0)
+                {
+                    info.HealthPercent = Math.Min(100.0, ((double)info.FullChargeCapacity / info.DesignCapacity) * 100.0);
+                }
+
+                if (lhmBattery.Voltage.HasValue && lhmBattery.Voltage.Value > 0)
+                    info.Voltage = lhmBattery.Voltage.Value;
+
+                if (lhmBattery.ChargeDischargeRateWatts.HasValue && lhmBattery.ChargeDischargeRateWatts.Value > 0)
+                    info.ChargeRateWatts = lhmBattery.ChargeDischargeRateWatts.Value;
+
+                if (lhmBattery.IsCharging)
+                    info.IsCharging = true;
+
+                if (info.RemainingTimeSeconds < 0 && lhmBattery.RemainingTimeSeconds.HasValue && lhmBattery.RemainingTimeSeconds.Value > 0)
+                    info.RemainingTimeSeconds = (int)lhmBattery.RemainingTimeSeconds.Value;
+            }
+
             if (!info.IsPresent)
             {
                 return info;
             }
 
-            // 2. Query static information using WMI root\wmi
+            // 3. Query static information using WMI root\wmi if capacities or metadata are still missing
             try
             {
                 using (var searcher = new ManagementObjectSearcher(@"root\wmi", "SELECT DesignedCapacity, ManufacturerName, DeviceName, Chemistry FROM BatteryStaticData"))
@@ -106,33 +149,47 @@ namespace DiagnoseTool
                     {
                         foreach (ManagementObject obj in collection)
                         {
-                            info.DesignCapacity = (uint)obj["DesignedCapacity"];
-                            info.Manufacturer = obj["ManufacturerName"]?.ToString() ?? "Unknown";
-                            info.DeviceName = obj["DeviceName"]?.ToString() ?? "Unknown";
-                            info.Chemistry = obj["Chemistry"]?.ToString() ?? "Unknown";
+                            if (info.DesignCapacity == 0 && obj["DesignedCapacity"] != null)
+                                info.DesignCapacity = Convert.ToUInt32(obj["DesignedCapacity"]);
+
+                            string manufacturer = obj["ManufacturerName"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(manufacturer))
+                                info.Manufacturer = manufacturer;
+
+                            string devName = obj["DeviceName"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(devName) && info.DeviceName == "Unknown")
+                                info.DeviceName = devName;
+
+                            string chem = obj["Chemistry"]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(chem))
+                                info.Chemistry = chem;
                             break;
                         }
                     }
                 }
 
-                using (var searcher = new ManagementObjectSearcher(@"root\wmi", "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity"))
+                if (info.FullChargeCapacity == 0)
                 {
-                    using (var collection = searcher.Get())
+                    using (var searcher = new ManagementObjectSearcher(@"root\wmi", "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity"))
                     {
-                        foreach (ManagementObject obj in collection)
+                        using (var collection = searcher.Get())
                         {
-                            info.FullChargeCapacity = (uint)obj["FullChargedCapacity"];
-                            break;
+                            foreach (ManagementObject obj in collection)
+                            {
+                                if (obj["FullChargedCapacity"] != null)
+                                    info.FullChargeCapacity = Convert.ToUInt32(obj["FullChargedCapacity"]);
+                                break;
+                            }
                         }
                     }
                 }
 
-                if (info.DesignCapacity > 0)
+                if (info.DesignCapacity > 0 && info.FullChargeCapacity > 0)
                 {
                     info.HealthPercent = ((double)info.FullChargeCapacity / info.DesignCapacity) * 100.0;
                     if (info.HealthPercent > 100.0) info.HealthPercent = 100.0;
                 }
-                else
+                else if (info.DesignCapacity == 0)
                 {
                     // Fallback to CIMV2 Win32_Battery
                     QueryFallbackCimv2(info);
@@ -141,8 +198,10 @@ namespace DiagnoseTool
             catch (Exception ex)
             {
                 System.Diagnostics.Debug.WriteLine($"WMI Battery Query failed: {ex.Message}");
-                // Fallback
-                QueryFallbackCimv2(info);
+                if (info.DesignCapacity == 0)
+                {
+                    QueryFallbackCimv2(info);
+                }
             }
 
             return info;
@@ -159,21 +218,21 @@ namespace DiagnoseTool
                         foreach (ManagementObject obj in collection)
                         {
                             info.IsPresent = true;
-                            
+
                             var design = obj["DesignCapacity"];
                             var full = obj["FullChargeCapacity"];
                             var deviceId = obj["DeviceID"];
 
-                            if (design != null) info.DesignCapacity = Convert.ToUInt32(design);
-                            if (full != null) info.FullChargeCapacity = Convert.ToUInt32(full);
-                            if (deviceId != null) info.DeviceName = deviceId.ToString();
+                            if (design != null && info.DesignCapacity == 0) info.DesignCapacity = Convert.ToUInt32(design);
+                            if (full != null && info.FullChargeCapacity == 0) info.FullChargeCapacity = Convert.ToUInt32(full);
+                            if (deviceId != null && info.DeviceName == "Unknown") info.DeviceName = deviceId.ToString();
 
                             if (info.DesignCapacity > 0 && info.FullChargeCapacity > 0)
                             {
                                 info.HealthPercent = ((double)info.FullChargeCapacity / info.DesignCapacity) * 100.0;
                                 if (info.HealthPercent > 100.0) info.HealthPercent = 100.0;
                             }
-                            
+
                             var charge = obj["EstimatedChargeRemaining"];
                             if (charge != null && info.CurrentChargePercent == 0)
                             {

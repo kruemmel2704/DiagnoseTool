@@ -335,11 +335,15 @@
                                     <StackPanel>
                                         <Grid>
                                             <TextBlock Text="CPU SUMMARY" FontWeight="Bold" Foreground="{StaticResource BrushAccentCyan}" FontSize="12"/>
-                                            <TextBlock Text="{Binding Diagnostics.CpuClockDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding Diagnostics.CpuPowerDisplay}" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,10,0"/>
+                                                <TextBlock Text="{Binding Diagnostics.CpuClockDisplay}" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            </StackPanel>
                                         </Grid>
+                                        <TextBlock Text="{Binding Diagnostics.CpuName}" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,6,0,4"/>
                                         
                                         <!-- CPU Usage -->
-                                        <TextBlock Text="Processor Load" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,12,0,4"/>
+                                        <TextBlock Text="Processor Load" FontSize="11" Foreground="{StaticResource BrushTextSecondary}" Margin="0,8,0,4"/>
                                         <Grid>
                                             <ProgressBar Style="{StaticResource ModernProgressBar}" Value="{Binding Diagnostics.CpuAverageLoad}" Maximum="100"/>
                                         </Grid>
@@ -363,7 +367,13 @@
                                 <!-- GPU Overview Card -->
                                 <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
                                     <StackPanel>
-                                        <TextBlock Text="GPU BENCHMARK DATA" FontWeight="Bold" Foreground="{StaticResource BrushAccentPurple}" FontSize="12" Margin="0,0,0,10"/>
+                                        <Grid Margin="0,0,0,6">
+                                            <TextBlock Text="GPU BENCHMARK DATA" FontWeight="Bold" Foreground="{StaticResource BrushAccentPurple}" FontSize="12"/>
+                                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                                                <TextBlock Text="{Binding Diagnostics.GpuPowerDisplay}" FontWeight="SemiBold" Foreground="{StaticResource BrushTextSecondary}" Margin="0,0,10,0"/>
+                                                <TextBlock Text="{Binding Diagnostics.GpuClockDisplay}" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}"/>
+                                            </StackPanel>
+                                        </Grid>
                                         <TextBlock Text="{Binding Diagnostics.GpuName}" FontWeight="SemiBold" Foreground="{StaticResource BrushTextPrimary}" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,0,0,10"/>
 
                                         <!-- GPU Load -->
@@ -393,7 +403,7 @@
                                         </Grid>
                                         <Grid Margin="0,4,0,0">
                                             <TextBlock Text="VRAM Usage" Style="{StaticResource TextMuted}"/>
-                                            <TextBlock Text="{Binding Diagnostics.GpuVramUsage, StringFormat={}{0:F1} %}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuVramDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
                                         </Grid>
                                     </StackPanel>
                                 </Border>
@@ -411,6 +421,31 @@
                                             <TextBlock Text="{Binding Diagnostics.RamUsageDisplay}" Style="{StaticResource TextMuted}"/>
                                             <TextBlock Text="{Binding Diagnostics.RamPercent, StringFormat={}{0:F1} %}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
                                         </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Storage Overview Card -->
+                                <Border Style="{StaticResource CardStyle}" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="STORAGE DRIVES (S.M.A.R.T.)" FontWeight="Bold" Foreground="{StaticResource BrushAccentCyan}" FontSize="12" Margin="0,0,0,8"/>
+                                        <ItemsControl ItemsSource="{Binding Diagnostics.StorageDrives}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#0C0E14" CornerRadius="6" Padding="8,6" Margin="0,4">
+                                                        <Grid>
+                                                            <Grid.RowDefinitions>
+                                                                <RowDefinition Height="Auto"/>
+                                                                <RowDefinition Height="Auto"/>
+                                                            </Grid.RowDefinitions>
+                                                            <TextBlock Grid.Row="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" Foreground="{StaticResource BrushTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Row="0" Text="{Binding TemperatureDisplay}" HorizontalAlignment="Right" FontWeight="Bold" FontSize="11" Foreground="{StaticResource BrushWarning}"/>
+                                                            <TextBlock Grid.Row="1" Text="{Binding UsedSpaceDisplay}" FontSize="10" Foreground="{StaticResource BrushTextMuted}" Margin="0,2,0,0"/>
+                                                            <TextBlock Grid.Row="1" Text="{Binding HealthDisplay}" HorizontalAlignment="Right" FontSize="10" Foreground="{StaticResource BrushSuccess}" Margin="0,2,0,0"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
                                     </StackPanel>
                                 </Border>
                             </StackPanel>

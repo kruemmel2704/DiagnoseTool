@@ -34,6 +34,7 @@ jobs:
         $exe = (Get-ChildItem -Path .\bin -Filter DiagnoseTool.exe -Recurse | Select-Object -First 1).FullName
         $outDir = Split-Path -Parent $exe
         Copy-Item -Path "$outDir\*" -Destination .\publish\ -Recurse
+        Invoke-WebRequest -Uri "https://github.com/namazso/PawnIO.Setup/releases/latest/download/PawnIO_setup.exe" -OutFile ".\publish\PawnIO_setup.exe"
         Compress-Archive -Path .\publish\* -DestinationPath .\DiagnoseTool.zip
 
     - name: Create Release

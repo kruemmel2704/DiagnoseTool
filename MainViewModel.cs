@@ -59,7 +59,7 @@ namespace DiagnoseTool
             UpdateDiagnostics();
             _tools = _launcherService.Tools;
             _currentTime = DateTime.Now.ToString("HH:mm:ss dddd, dd.MM.yyyy");
-            _batteryInfo = BatteryService.GetBatteryInfo();
+            _batteryInfo = BatteryService.GetBatteryInfo(_diagnostics?.BatteryData);
 
             // Setup timer to refresh data every second
             _timer = new DispatcherTimer
@@ -220,7 +220,7 @@ namespace DiagnoseTool
             CurrentTime = DateTime.Now.ToString("HH:mm:ss - dd.MM.yyyy");
 
             // Refresh Battery info in background
-            BatteryInfo = BatteryService.GetBatteryInfo();
+            BatteryInfo = BatteryService.GetBatteryInfo(Diagnostics?.BatteryData);
 
             if (IsRecording)
             {
@@ -459,7 +459,7 @@ namespace DiagnoseTool
 
         private void ExecuteStartBatteryTest()
         {
-            var info = BatteryService.GetBatteryInfo();
+            var info = BatteryService.GetBatteryInfo(Diagnostics?.BatteryData);
             if (!info.IsPresent)
             {
                 ShowStatus("Keine Batterie erkannt. Der Stresstest kann nur auf Laptops durchgeführt werden.", true);
@@ -505,7 +505,7 @@ namespace DiagnoseTool
             IsBatteryTestRunning = false;
             BatteryTestCompleted = true;
 
-            var finalInfo = BatteryService.GetBatteryInfo();
+            var finalInfo = BatteryService.GetBatteryInfo(Diagnostics?.BatteryData);
             BatteryTestCurrentPercent = finalInfo.IsPresent ? finalInfo.CurrentChargePercent : 0;
             double drain = BatteryTestStartPercent - BatteryTestCurrentPercent;
             if (drain < 0) drain = 0;
