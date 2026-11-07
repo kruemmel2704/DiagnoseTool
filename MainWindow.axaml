@@ -1,0 +1,1233 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:DiagnoseTool"
+        mc:Ignorable="d"
+        x:Class="DiagnoseTool.MainWindow"
+        Title="Hardware Diagnostics &amp; Testing Tool" 
+        Height="680" Width="1050"
+        SystemDecorations="None" 
+        Background="Transparent"
+        WindowStartupLocation="CenterScreen"
+        PointerPressed="Window_PointerPressed">
+
+    <Border Name="WindowBorder" CornerRadius="12" Background="{DynamicResource BrushBgMain}" BorderBrush="#252A3C" BorderThickness="1.5" ClipToBounds="True">
+        <Grid ColumnDefinitions="230,*">
+
+            <!-- ================= SIDEBAR ================= -->
+            <Border Grid.Column="0" Background="{DynamicResource BrushBgSidebar}" BorderBrush="#1C1E27" BorderThickness="0,0,1.5,0">
+                <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Margin="12,16">
+
+                    <!-- Logo / Branding (Official CPM Vector Logo) -->
+                    <StackPanel Grid.Row="0" Orientation="Vertical" HorizontalAlignment="Center" Margin="0,10,0,20">
+                        <Viewbox Width="120" Height="43" HorizontalAlignment="Center">
+                            <Canvas Width="119.11" Height="42.75">
+                                <!-- Top part of C -->
+                                <Path Fill="{DynamicResource BrushTextPrimary}" Data="M16.68,11c.23-.45,.58-.84,1-1.12,.38-.3,.86-.46,1.34-.45l15.71,.17L37.36,.24,16.38,0c-1.68-.04-3.33,.39-4.77,1.26-1.46,.9-2.73,2.06-3.76,3.43-1.14,1.52-2.09,3.17-2.83,4.92-.82,1.85-1.53,3.74-2.14,5.66,.01,.06,.01,.11,0,.17l11.76,.14c.6-1.56,1.28-3.09,2.04-4.58Z"/>
+                                <!-- Bottom part of C -->
+                                <Path Fill="{DynamicResource BrushAccentCyan}" Data="M13.16,32.09c-.47-.12-.89-.38-1.21-.75-.32-.37-.46-.86-.38-1.34,.31-2.93,.9-5.81,1.75-8.63,.36-1.15,.76-2.27,1.19-3.38l-11.75-.11c-.58,1.87-1.07,3.73-1.46,5.56-.38,1.83-.74,3.56-1,5C.05,29.85-.05,31.29,.02,32.72c.06,1.44,.33,2.86,.81,4.21,.42,1.26,1.13,2.4,2.07,3.34,.98,.97,2.27,1.58,3.65,1.73,6.58,.88,13.25,.8,19.8-.24l2.67-9.76c-2.59,.53-5.23,.79-7.87,.78-2.66-.02-5.32-.26-7.94-.71l-.05,.02Z"/>
+                                <!-- Top part of P -->
+                                <Path Fill="{DynamicResource BrushTextPrimary}" Data="M50.93,7.64l6.6,.07c.42,0,.83,.13,1.18,.36,.36,.24,.66,.54,.9,.9,.25,.38,.44,.79,.57,1.23,.13,.42,.2,.87,.2,1.31,0,1.19-.21,2.37-.63,3.49-.15,.4-.33,.79-.54,1.16l10.07,.12c0-.17,.12-.34,.17-.51,.55-1.98,.85-4.02,.88-6.08,.01-1.04-.15-2.07-.48-3.05-.31-.96-.8-1.86-1.44-2.64-1-1.16-2.27-2.04-3.71-2.56-1.41-.51-2.89-.78-4.38-.8l-18-.2-4.4,15.42,10.59,.14,2.42-8.36Z"/>
+                                <!-- Bottom part of P -->
+                                <Path Fill="{DynamicResource BrushAccentCyan}" Data="M59.2,18.53c-.33,.62-.72,1.21-1.18,1.75-.29,.34-.57,.67-.84,1-.29,.33-.63,.61-1,.84-.46,.26-.95,.45-1.46,.56-.72,.14-1.46,.2-2.19,.18l-5.31-.06,1.29-4.42-10.59-.12-6.76,23.59,10.59,.15,3.21-11.12,12.25,.12c1.03,.02,2.06-.19,3-.62,.95-.42,1.84-.96,2.65-1.62,.85-.69,1.62-1.48,2.3-2.34,.67-.86,1.29-1.76,1.86-2.7,.94-1.6,1.69-3.3,2.23-5.07l-10.05-.12Z"/>
+                                <!-- Bottom M left -->
+                                <Path Fill="{DynamicResource BrushAccentCyan}" Data="M67.7,42.28l10.5,.12,6.7-23.57-10.5-.13-6.7,23.58Z"/>
+                                <!-- Bottom M center -->
+                                <Path Fill="{DynamicResource BrushAccentCyan}" Data="M88.92,34h2.31l11.46-15-16.23-.19,2.46,15.19Z"/>
+                                <!-- Bottom M right -->
+                                <Path Fill="{DynamicResource BrushAccentCyan}" Data="M104.15,19.05l-6.77,23.57,10.64,.13,6.68-23.58-10.55-.12Z"/>
+                                <!-- Top part of M -->
+                                <Path Fill="{DynamicResource BrushTextPrimary}" Data="M119.11,1.33l-9.55-.11c-1.26,0-2.49,.31-3.59,.92-1.18,.65-2.2,1.54-3,2.63l-6.95,9.37-1.43-9c-.11-.6-.34-1.18-.68-1.69-.66-1-1.62-1.76-2.75-2.16-.55-.19-1.13-.29-1.71-.29l-10.64-.14-4.39,15.43,10.5,.12,1-3.53,.57,3.56,16.23,.19,2.32-3-.87,3.07,10.56,.12,4.38-15.49Z"/>
+                            </Canvas>
+                        </Viewbox>
+                        <TextBlock Text="DIAGNOSE TOOL" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+                    </StackPanel>
+
+                    <Separator Grid.Row="1" Background="#1C1F2E" Margin="4,0,4,20"/>
+
+                    <!-- Navigation Buttons -->
+                    <StackPanel Grid.Row="2">
+                        <RadioButton Classes="SidebarButton" 
+                                     Content="Dashboard" 
+                                     IsChecked="{Binding IsDashboardSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="0" />
+                                     
+                        <RadioButton Classes="SidebarButton" 
+                                     Content="Testing Tools" 
+                                     IsChecked="{Binding IsToolsSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="1" 
+                                     Margin="0,8,0,0" />
+                                     
+                        <RadioButton Classes="SidebarButton" 
+                                     Content="System Repair" 
+                                     IsChecked="{Binding IsRepairSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="2" 
+                                     Margin="0,8,0,0" />
+
+                        <RadioButton Classes="SidebarButton" 
+                                     Content="Batterie-Test" 
+                                     IsChecked="{Binding IsBatteryTestSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="4" 
+                                     Margin="0,8,0,0" />
+                                     
+                        <RadioButton Classes="SidebarButton" 
+                                     Content="CPU Stresstest" 
+                                     IsChecked="{Binding IsCpuStressSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="5" 
+                                     Margin="0,8,0,0" />
+                                     
+                        <RadioButton Classes="SidebarButton" 
+                                     Content="System Guide" 
+                                     IsChecked="{Binding IsInfoSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}" 
+                                     CommandParameter="3" 
+                                     Margin="0,8,0,0" />
+                    </StackPanel>
+
+                    <!-- USB Detection Widget -->
+                    <Border Grid.Row="3" Classes="CardStyle" Padding="12" Margin="4,0,4,16" Background="#0C0E14" BorderBrush="#1C1F2E">
+                        <StackPanel>
+                            <TextBlock Text="USB DRIVES SCANNER" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
+                            <Button Classes="ModernButton" 
+                                    Content="Scan Removable Drives" 
+                                    Command="{Binding RefreshUsbCommand}" 
+                                    FontSize="11" 
+                                    Padding="8,6" 
+                                    HorizontalAlignment="Stretch"/>
+                            <TextBlock Text="Press to check for USB tools" FontSize="9" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,6,0,0" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Sidebar Footer Clock -->
+                    <StackPanel Grid.Row="4" Margin="4,0,4,6">
+                        <TextBlock Text="{Binding CurrentTime}" 
+                                   HorizontalAlignment="Center" 
+                                   FontSize="11" 
+                                   FontWeight="Medium" 
+                                   Foreground="{DynamicResource BrushTextSecondary}" />
+                        <TextBlock Text="{Binding AdminStatusText}" 
+                                   HorizontalAlignment="Center" 
+                                   FontSize="9" 
+                                   Margin="0,4,0,0"
+                                   Classes.isAdmin="{Binding IsAdmin}">
+                            <TextBlock.Styles>
+                                <Style Selector="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+                                </Style>
+                                <Style Selector="TextBlock.isAdmin">
+                                    <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+                                </Style>
+                            </TextBlock.Styles>
+                        </TextBlock>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- ================= MAIN CONTENT ================= -->
+            <Grid Grid.Column="1" RowDefinitions="Auto,*,Auto" Margin="20,16">
+
+                <!-- Header Bar (Title & Window Controls) -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20">
+                    <StackPanel Grid.Column="0" Orientation="Vertical">
+                        <TextBlock Text="Hardware Diagnostics &amp; Benchmarks" Classes="TextHeader"/>
+                        <TextBlock Text="Real-time monitoring and fast execution of USB stress-testing utilities." Classes="TextSubheader" Margin="0,4,0,0"/>
+                    </StackPanel>
+
+                    <!-- Minimize / Maximize / Close Buttons -->
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Top" Margin="0,-6,0,0">
+                        <Button Click="MinimizeButton_Click" 
+                                Width="32" Height="32" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Cursor="Hand">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                    <Setter Property="Background" Value="#1C2130"/>
+                                </Style>
+                            </Button.Styles>
+                            <Path Data="M 6 15 L 18 15 Z" Stroke="{DynamicResource BrushTextPrimary}" StrokeThickness="2" Width="12" Height="12" Stretch="Fill"/>
+                        </Button>
+
+                        <Button Name="BtnMaximize" Click="MaximizeButton_Click" 
+                                Width="32" Height="32" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Cursor="Hand"
+                                Margin="6,0,0,0">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                    <Setter Property="Background" Value="#1C2130"/>
+                                </Style>
+                            </Button.Styles>
+                            <Path Name="MaximizePath" Data="M 4 4 H 14 V 14 H 4 Z" Stroke="{DynamicResource BrushTextPrimary}" StrokeThickness="2" Width="10" Height="10" Stretch="Fill"/>
+                        </Button>
+
+                        <Button Click="CloseButton_Click" 
+                                Width="32" Height="32" 
+                                Background="Transparent" 
+                                BorderThickness="0" 
+                                Cursor="Hand"
+                                Margin="6,0,0,0">
+                            <Button.Styles>
+                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                    <Setter Property="Background" Value="{DynamicResource BrushDanger}"/>
+                                </Style>
+                            </Button.Styles>
+                            <Path Data="M 6 6 L 18 18 M 6 18 L 18 6" Stroke="{DynamicResource BrushTextPrimary}" StrokeThickness="2" Width="10" Height="10" Stretch="Fill"/>
+                        </Button>
+                    </StackPanel>
+                </Grid>
+
+                <!-- ================= PAGES CONTAINER ================= -->
+                <Grid Grid.Row="1">
+                    
+                    <!-- PAGE 0: DASHBOARD -->
+                    <Grid ColumnDefinitions="360,*" IsVisible="{Binding IsDashboardSelected}">
+                        <!-- General Diagnostics (CPU, GPU, RAM) -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
+                            <StackPanel>
+                                
+                                <!-- System Info Card -->
+                                <Border Classes="CardStyle" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="SYSTEM-INFORMATIONEN" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="11" Margin="0,0,0,10"/>
+                                        
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="System-Modell:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding SystemInfo.FullSystemName}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        </Grid>
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Seriennummer:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding SystemInfo.SerialNumber}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                        </Grid>
+                                        
+                                        <Separator Background="#222636" Margin="0,8"/>
+                                        
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Mainboard-Modell:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding SystemInfo.MotherboardModel}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        </Grid>
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Hersteller:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding SystemInfo.MotherboardManufacturer}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Werte-Aufzeichnung (PDF-Report) Card -->
+                                <Border Classes="CardStyle" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="MESSWERTE-AUFZEICHNUNG" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="11" Margin="0,0,0,10"/>
+                                        
+                                        <!-- Active Recording Indicator -->
+                                        <Grid ColumnDefinitions="Auto,*" Margin="0,0,0,12">
+                                            <!-- Pulsing Red Dot (Only visible when IsRecording is true) -->
+                                            <Ellipse Name="recordingDot" Grid.Column="0" Width="10" Height="10" Fill="#EF4444" VerticalAlignment="Center" Margin="0,0,8,0" 
+                                                     IsVisible="{Binding IsRecording}">
+                                                <Ellipse.Styles>
+                                                    <Style Selector="Ellipse">
+                                                        <Style.Animations>
+                                                            <Animation Duration="0:0:1.6" IterationCount="Infinite" PlaybackDirection="Alternate">
+                                                                <KeyFrame KeyTime="0:0:0">
+                                                                    <Setter Property="Opacity" Value="1.0"/>
+                                                                </KeyFrame>
+                                                                <KeyFrame KeyTime="0:0:0.8">
+                                                                    <Setter Property="Opacity" Value="0.2"/>
+                                                                </KeyFrame>
+                                                            </Animation>
+                                                        </Style.Animations>
+                                                    </Style>
+                                                </Ellipse.Styles>
+                                            </Ellipse>
+
+                                            <TextBlock Grid.Column="1" VerticalAlignment="Center" FontSize="12" FontWeight="SemiBold"
+                                                       Classes.isRecording="{Binding IsRecording}">
+                                                <TextBlock.Styles>
+                                                    <Style Selector="TextBlock">
+                                                        <Setter Property="Text" Value="Bereit zur Aufnahme" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+                                                    </Style>
+                                                    <Style Selector="TextBlock.isRecording">
+                                                        <Setter Property="Text" Value="Aufzeichnung läuft..." />
+                                                        <Setter Property="Foreground" Value="#EF4444" />
+                                                    </Style>
+                                                </TextBlock.Styles>
+                                            </TextBlock>
+                                        </Grid>
+
+                                        <!-- Stats Details -->
+                                        <Grid ColumnDefinitions="*,*" Margin="0,0,0,12" IsVisible="{Binding IsRecording}">
+                                            <StackPanel Grid.Column="0">
+                                                <TextBlock Text="Messdauer" Classes="TextMuted"/>
+                                                <TextBlock Text="{Binding RecordingTimeDisplay}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                            </StackPanel>
+                                            <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                                                <TextBlock Text="Datenpunkte" Classes="TextMuted"/>
+                                                <TextBlock Text="{Binding RecordedSamplesCount}" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Start/Stop Buttons -->
+                                        <Grid>
+                                            <!-- Start button (Visible when NOT recording) -->
+                                            <Button Classes="PrimaryButton" 
+                                                    Content="Aufzeichnung starten" 
+                                                    Command="{Binding StartRecordingCommand}" 
+                                                    Height="36"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    IsVisible="{Binding !IsRecording}"/>
+                                            
+                                            <!-- Stop button (Visible when recording) -->
+                                            <Button Classes="PrimaryButton" 
+                                                    Background="#EF4444"
+                                                    Content="Stoppen &amp; PDF erstellen" 
+                                                    Command="{Binding StopRecordingCommand}" 
+                                                    Height="36"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    IsVisible="{Binding IsRecording}">
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                        <Setter Property="Background" Value="#F87171" />
+                                                        <Setter Property="BoxShadow" Value="0 0 12 0 #EF4444" />
+                                                    </Style>
+                                                    <Style Selector="Button:pressed /template/ ContentPresenter">
+                                                        <Setter Property="Background" Value="#DC2626" />
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- CPU Overview Card -->
+                                <Border Classes="CardStyle">
+                                    <StackPanel>
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="CPU SUMMARY" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Diagnostics.CpuPowerDisplay}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="11" Margin="0,0,8,0"/>
+                                                <TextBlock Text="{Binding Diagnostics.CpuClockDisplay}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" FontSize="11"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Diagnostics.CpuName}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,4,0,10"/>
+                                        
+                                        <!-- CPU Usage -->
+                                        <TextBlock Text="Processor Load" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,4,0,4"/>
+                                        <ProgressBar Classes="ModernProgressBar" Value="{Binding Diagnostics.CpuAverageLoad}" Maximum="100"/>
+                                        <Grid Margin="0,4,0,12">
+                                            <TextBlock Text="Overall Usage" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding Diagnostics.CpuAverageLoadDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                        </Grid>
+
+                                        <!-- CPU Temp -->
+                                        <TextBlock Text="Package Temperature" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,4,0,4"/>
+                                        <ProgressBar Classes="ModernProgressBar" Value="{Binding Diagnostics.CpuAverageTemp}" Maximum="100" Foreground="{DynamicResource BrushWarning}"/>
+                                        <Grid Margin="0,4,0,0">
+                                            <TextBlock Text="Overall Temp" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding Diagnostics.CpuAverageTempDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- GPU Overview Card -->
+                                <Border Classes="CardStyle" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,6">
+                                            <TextBlock Text="GPU BENCHMARK DATA" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" FontSize="12"/>
+                                            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                                                <TextBlock Text="{Binding Diagnostics.GpuPowerDisplay}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="11" Margin="0,0,8,0"/>
+                                                <TextBlock Text="{Binding Diagnostics.GpuClockDisplay}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" FontSize="11"/>
+                                            </StackPanel>
+                                        </Grid>
+                                        <TextBlock Text="{Binding Diagnostics.GpuName}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}" FontSize="13" TextTrimming="CharacterEllipsis" Margin="0,0,0,10"/>
+
+                                        <!-- GPU Load -->
+                                        <TextBlock Text="Graphics Core Load" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,4,0,4"/>
+                                        <ProgressBar Classes="ModernProgressBar" Value="{Binding Diagnostics.GpuLoad}" Maximum="100" Foreground="{DynamicResource BrushAccentPurple}"/>
+                                        <Grid Margin="0,4,0,12">
+                                            <TextBlock Text="Core Activity" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuLoadDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                        </Grid>
+
+                                        <!-- GPU Temp -->
+                                        <TextBlock Text="Graphics Core Temperature" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,4,0,4"/>
+                                        <ProgressBar Classes="ModernProgressBar" Value="{Binding Diagnostics.GpuTemp}" Maximum="100" Foreground="{DynamicResource BrushDanger}"/>
+                                        <Grid Margin="0,4,0,12">
+                                            <TextBlock Text="GPU Temperature" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuTempDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                        </Grid>
+
+                                        <!-- GPU VRAM -->
+                                        <TextBlock Text="VRAM Load" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,4,0,4"/>
+                                        <ProgressBar Classes="ModernProgressBar" Value="{Binding Diagnostics.GpuVramUsage}" Maximum="100"/>
+                                        <Grid Margin="0,4,0,0">
+                                            <TextBlock Text="VRAM Usage" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding Diagnostics.GpuVramUsageDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Memory Overview Card -->
+                                <Border Classes="CardStyle" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="SYSTEM MEMORY (RAM)" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12" Margin="0,0,0,12"/>
+
+                                        <TextBlock Text="Physical RAM Load" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,0,0,4"/>
+                                        <ProgressBar Classes="ModernProgressBar" Value="{Binding Diagnostics.RamPercent}" Maximum="100" Foreground="{DynamicResource BrushSuccess}"/>
+                                        <Grid Margin="0,4,0,0">
+                                            <TextBlock Text="{Binding Diagnostics.RamUsageDisplay}" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding Diagnostics.RamPercent, StringFormat={}{0:F1} %}" HorizontalAlignment="Right" FontWeight="SemiBold" FontSize="12"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Storage Overview Card -->
+                                <Border Classes="CardStyle" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="STORAGE DRIVES (S.M.A.R.T.)" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12" Margin="0,0,0,8"/>
+                                        <ItemsControl ItemsSource="{Binding Diagnostics.StorageDrives}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#0C0E14" CornerRadius="6" Padding="8,6" Margin="0,4">
+                                                        <Grid RowDefinitions="Auto,Auto">
+                                                            <TextBlock Grid.Row="0" Text="{Binding Name}" FontWeight="SemiBold" FontSize="11" Foreground="{DynamicResource BrushTextPrimary}" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Row="0" Text="{Binding TemperatureDisplay}" HorizontalAlignment="Right" FontWeight="Bold" FontSize="11" Foreground="{DynamicResource BrushWarning}"/>
+                                                            <TextBlock Grid.Row="1" Text="{Binding UsedSpaceDisplay}" FontSize="10" Foreground="{DynamicResource BrushTextMuted}" Margin="0,2,0,0"/>
+                                                            <TextBlock Grid.Row="1" Text="{Binding HealthDisplay}" HorizontalAlignment="Right" FontSize="10" Foreground="{DynamicResource BrushSuccess}" Margin="0,2,0,0"/>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Detailed CPU Core temperatures (Grid) -->
+                        <Border Grid.Column="1" Classes="CardStyle">
+                            <Grid RowDefinitions="Auto,Auto,Auto,Auto,*">
+
+                                <TextBlock Grid.Row="0" Text="INDIVIDUAL CPU CORES MONITOR" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" FontSize="13"/>
+                                <TextBlock Grid.Row="1" Text="Low-level core sensors for temperature and load. Colors: Cold/Normal (Green), Warm (Orange), Hot (Red)." Classes="TextMuted" Margin="0,4,0,10"/>
+
+                                <!-- Warning panel for Driver Blocked / No Admin -->
+                                <Border Grid.Row="2" 
+                                        Background="#26EF4444" 
+                                        BorderBrush="#EF4444" 
+                                        BorderThickness="1" 
+                                        CornerRadius="6" 
+                                        Padding="12" 
+                                        Margin="0,0,0,12"
+                                        IsVisible="{Binding HasDriverError}">
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <!-- Warning Icon -->
+                                        <Path Grid.Column="0" 
+                                              Data="M12,2L1,21H23L12,2M12,6L19.8,19H4.2L12,6M11,10V14H13V10H11M11,16V18H13V16H11Z" 
+                                              Fill="#EF4444" 
+                                              Width="20" Height="20" 
+                                              Stretch="Uniform" 
+                                              VerticalAlignment="Top" 
+                                              Margin="0,2,10,0"/>
+                                               
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="Warnung: Temperatursensoren nicht lesbar" 
+                                                       FontWeight="Bold" 
+                                                       Foreground="#EF4444" 
+                                                       FontSize="12" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="Die Temperaturen konnten nicht ausgelesen werden. Ursache:" 
+                                                       Foreground="{DynamicResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="• Windows Kernisolierung (Speicherintegrität) blockiert den standardmäßigen Treiber." 
+                                                       Foreground="{DynamicResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,8"/>
+                                            
+                                            <TextBlock Text="Empfohlene Lösung (Kernisolierung aktiv lassen):" 
+                                                       FontWeight="Bold"
+                                                       Foreground="{DynamicResource BrushTextPrimary}" 
+                                                       FontSize="11" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="Nutze HWiNFO Portable als treiberlosen Fallback! Starte HWiNFO und aktiviere in dessen Einstellungen (Sensoren -> Zahnrad -> HWiNFO Gadget) die Option 'Enable reporting to Gadget' sowie 'Report value in Gadget' für die CPU/GPU-Temperaturen." 
+                                                       Foreground="{DynamicResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap"
+                                                       Margin="0,0,0,10"/>
+
+                                            <!-- Button to start HWiNFO if found -->
+                                            <StackPanel Orientation="Horizontal">
+                                                <Button Content="HWiNFO64 starten" 
+                                                        Command="{Binding StartHWiNFOCommand}"
+                                                        Classes="ModernButton"
+                                                        FontSize="11"
+                                                        Padding="12,5"
+                                                        Height="28"
+                                                        IsVisible="{Binding IsHWiNFOPortableFound}" />
+                                                
+                                                <TextBlock Text="Hinweis: Kopiere HWiNFO64.exe in den 'Tools'-Ordner für Direktstart." 
+                                                           Foreground="{DynamicResource BrushTextMuted}" 
+                                                           FontSize="10"
+                                                           VerticalAlignment="Center"
+                                                           Margin="0,4,0,0"
+                                                           IsVisible="{Binding !IsHWiNFOPortableFound}" />
+                                            </StackPanel>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Info panel for HWiNFO Fallback Active -->
+                                <Border Grid.Row="3" 
+                                        Background="#2610B981" 
+                                        BorderBrush="#10B981" 
+                                        BorderThickness="1" 
+                                        CornerRadius="6" 
+                                        Padding="12" 
+                                        Margin="0,0,0,12"
+                                        IsVisible="{Binding IsHWiNFOFallbackActive}">
+                                    <Grid ColumnDefinitions="Auto,*">
+                                        <!-- Info Icon -->
+                                        <Path Grid.Column="0" 
+                                              Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,8H13V10H11V8M11,12H13V18H11V12Z" 
+                                              Fill="#10B981" 
+                                              Width="20" Height="20" 
+                                              Stretch="Uniform" 
+                                              VerticalAlignment="Top" 
+                                              Margin="0,2,10,0"/>
+                                               
+                                        <StackPanel Grid.Column="1">
+                                            <TextBlock Text="HWiNFO Fallback Aktiv" 
+                                                       FontWeight="Bold" 
+                                                       Foreground="#10B981" 
+                                                       FontSize="12" 
+                                                       Margin="0,0,0,4"/>
+                                            <TextBlock Text="Temperaturen werden sicher über das im Hintergrund laufende HWiNFO64 bezogen. Es ist kein Deaktivieren der Windows-Kernisolierung nötig." 
+                                                       Foreground="{DynamicResource BrushTextSecondary}" 
+                                                       FontSize="11" 
+                                                       TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Scrollable grid of CPU Cores -->
+                                <ScrollViewer Grid.Row="4" VerticalScrollBarVisibility="Auto">
+                                    <ItemsControl ItemsSource="{Binding Diagnostics.CpuCores}">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <WrapPanel HorizontalAlignment="Center"/>
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <!-- Border color dynamically bound to TemperatureColor -->
+                                                <Border Width="112" Height="78" BorderBrush="{Binding TemperatureColor}" BorderThickness="1.5" Background="#0C0E14" CornerRadius="8" Padding="10,6" Margin="4">
+                                                    <Grid RowDefinitions="Auto,Auto,Auto">
+                                                        <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                        
+                                                        <!-- Temperature displays in bound color -->
+                                                        <TextBlock Grid.Row="1" Text="{Binding TemperatureDisplay}" FontSize="16" FontWeight="Bold" Foreground="{Binding TemperatureColor}" HorizontalAlignment="Center" Margin="0,2,0,2"/>
+                                                        
+                                                        <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto">
+                                                            <TextBlock Grid.Column="0" Text="L:" FontSize="9" Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
+                                                            <ProgressBar Grid.Column="1" Classes="ModernProgressBar" Value="{Binding Load}" Maximum="100" Height="4" Margin="4,0" VerticalAlignment="Center"/>
+                                                            <TextBlock Grid.Column="2" Text="{Binding LoadDisplay}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                                                        </Grid>
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </ScrollViewer>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                    
+                    <!-- PAGE 1: BENCHMARK & TESTING TOOLS -->
+                    <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsToolsSelected}">
+                        <Border Grid.Row="0" Classes="CardStyle" Padding="16,12" Margin="0,0,0,16" Background="#0C0E14" BorderBrush="#1C1F2E">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <StackPanel>
+                                    <TextBlock Text="External Diagnostic &amp; Stress Tools" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                    <TextBlock Text="Executables will be scanned in removable USB drives automatically. Override manually if they reside locally." Classes="TextMuted" Margin="0,2,0,0"/>
+                                </StackPanel>
+                                <Button Grid.Column="1" Classes="ModernButton" Content="Rescan USB Sticks" Command="{Binding RefreshUsbCommand}" Padding="12,6" VerticalAlignment="Center"/>
+                            </Grid>
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding Tools}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Border Classes="CardStyle" Margin="0,0,0,12">
+                                            <Grid ColumnDefinitions="*,280">
+
+                                                <!-- Left Side: Tool Information -->
+                                                <StackPanel Grid.Column="0" Margin="0,0,16,0">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <TextBlock Text="{Binding Name}" FontSize="18" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                                        
+                                                        <!-- Status Tag -->
+                                                        <Border CornerRadius="4" Padding="6,2" Margin="10,0,0,0" VerticalAlignment="Center"
+                                                                Classes.isFound="{Binding IsFound}">
+                                                            <Border.Styles>
+                                                                <Style Selector="Border">
+                                                                    <Setter Property="Background" Value="#10EF4444"/>
+                                                                </Style>
+                                                                <Style Selector="Border.isFound">
+                                                                    <Setter Property="Background" Value="#1010B981"/>
+                                                                </Style>
+                                                            </Border.Styles>
+                                                            <TextBlock Text="{Binding DisplayStatus}" FontSize="10" FontWeight="Bold"
+                                                                       Classes.isFound="{Binding IsFound}">
+                                                                <TextBlock.Styles>
+                                                                    <Style Selector="TextBlock">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+                                                                    </Style>
+                                                                    <Style Selector="TextBlock.isFound">
+                                                                        <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}"/>
+                                                                    </Style>
+                                                                </TextBlock.Styles>
+                                                            </TextBlock>
+                                                        </Border>
+                                                    </StackPanel>
+
+                                                    <TextBlock Text="{Binding Description}" Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,6,0,10"/>
+                                                    
+                                                    <!-- Path description -->
+                                                    <Grid ColumnDefinitions="Auto,*">
+                                                        <TextBlock Grid.Column="0" Text="Executable Path: " FontSize="11" Foreground="{DynamicResource BrushTextMuted}"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding Path, TargetNullValue='(Not resolved)'}" FontSize="11" Foreground="{DynamicResource BrushTextSecondary}" TextTrimming="CharacterEllipsis"/>
+                                                    </Grid>
+                                                </StackPanel>
+
+                                                <!-- Right Side: Commands Panel -->
+                                                <Grid Grid.Column="1" RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" VerticalAlignment="Center">
+                                                    <!-- Launch Button (spans 2 columns) -->
+                                                    <Button Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" 
+                                                            Classes="PrimaryButton" 
+                                                            Content="LAUNCH BENCHMARK" 
+                                                            Command="{Binding $parent[Window].DataContext.LaunchCommand}" 
+                                                            CommandParameter="{Binding Key}"
+                                                            IsEnabled="{Binding IsFound}"
+                                                            Height="40" 
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                            Margin="0,0,0,8"/>
+
+                                                    <!-- Browse Override -->
+                                                    <Button Grid.Row="1" Grid.Column="0" 
+                                                            Classes="ModernButton" 
+                                                            Content="Browse..." 
+                                                            Command="{Binding $parent[Window].DataContext.BrowseCommand}" 
+                                                            CommandParameter="{Binding Key}"
+                                                            FontSize="11" 
+                                                            Padding="0,8"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                            Margin="0,0,4,0"/>
+
+                                                    <!-- Clear / Auto -->
+                                                    <Button Grid.Row="1" Grid.Column="1" 
+                                                            Classes="ModernButton" 
+                                                            Content="Reset Auto" 
+                                                            Command="{Binding $parent[Window].DataContext.ClearPathCommand}" 
+                                                            CommandParameter="{Binding Key}"
+                                                            FontSize="11" 
+                                                            Padding="0,8"
+                                                            HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                            Margin="4,0,0,0"/>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Grid>
+                    
+                    <!-- PAGE 2: SYSTEM REPAIR -->
+                    <Grid RowDefinitions="Auto,*" IsVisible="{Binding IsRepairSelected}">
+                        <Border Grid.Row="0" Classes="CardStyle" Padding="16,12" Margin="0,0,0,16" Background="#0C0E14" BorderBrush="#1C1F2E">
+                            <StackPanel>
+                                <TextBlock Text="Windows System Repair Utilities" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                <TextBlock Text="These built-in Windows diagnostics tools scan and repair file corruption, registry components, and system integrity." Classes="TextMuted" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </Border>
+
+                        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                            <UniformGrid Columns="2" VerticalAlignment="Top">
+                                <!-- SFC Card -->
+                                <Border Classes="CardStyle" Margin="5">
+                                    <Grid RowDefinitions="Auto,*,Auto">
+                                        <TextBlock Text="System File Checker (SFC)" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        <TextBlock Grid.Row="1" Text="Scans all protected system files and replaces corrupted files with a cached copy from the Windows Component Store. Extremely useful for resolving random crashes and system instability." Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Classes="PrimaryButton" Content="Run SFC Scan (sfc /scannow)" Command="{Binding RunRepairCommand}" CommandParameter="sfc" Height="38" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- DISM Restore Health Card -->
+                                <Border Classes="CardStyle" Margin="5">
+                                    <Grid RowDefinitions="Auto,*,Auto">
+                                        <TextBlock Text="DISM Restore Health" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}"/>
+                                        <TextBlock Grid.Row="1" Text="Scans the Windows image for component store corruption and performs repair operations automatically by downloading replacement files from Windows Update. Fixes deep OS issues." Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Classes="PrimaryButton" Background="{DynamicResource BrushAccentPurple}" Content="Run DISM Repair" Command="{Binding RunRepairCommand}" CommandParameter="dism_restore" Height="38" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="#B572FF" />
+                                                    <Setter Property="BoxShadow" Value="0 0 12 0 #A855F7" />
+                                                </Style>
+                                                <Style Selector="Button:pressed /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="#8F3BE6" />
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+                                    </Grid>
+                                </Border>
+
+                                <!-- DISM Check Health Card -->
+                                <Border Classes="CardStyle" Margin="5">
+                                    <Grid RowDefinitions="Auto,*,Auto">
+                                        <TextBlock Text="DISM Check Health" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        <TextBlock Grid.Row="1" Text="Quickly checks whether the Windows component store image has been flagged as corrupted by a previous process. This is a read-only check that takes only a few seconds." Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Classes="ModernButton" Content="Run DISM Check" Command="{Binding RunRepairCommand}" CommandParameter="dism_check" Height="38" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Check Disk Card -->
+                                <Border Classes="CardStyle" Margin="5">
+                                    <Grid RowDefinitions="Auto,*,Auto">
+                                        <TextBlock Text="Check Disk (Chkdsk)" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        <TextBlock Grid.Row="1" Text="Scans the primary file system on drive C: for logical and physical disk errors. Runs in read-only mode to detect problems. Note: /f or /r repairs require a reboot." Classes="TextSubheader" Foreground="{DynamicResource BrushTextSecondary}" TextWrapping="Wrap" Margin="0,8,0,16"/>
+                                        <Button Grid.Row="2" Classes="ModernButton" Content="Run Read-Only chkdsk" Command="{Binding RunRepairCommand}" CommandParameter="chkdsk" Height="38" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    </Grid>
+                                </Border>
+                            </UniformGrid>
+                        </ScrollViewer>
+                    </Grid>
+                    
+                    <!-- PAGE 3: SYSTEM GUIDE -->
+                    <Grid IsVisible="{Binding IsInfoSelected}">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+                                <Border Classes="CardStyle">
+                                    <StackPanel>
+                                        <TextBlock Text="Stress-Testing and Diagnostics Guide" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,0,10"/>
+                                        <TextBlock Text="This utility is designed for system administrators, overclockers, and hardware technicians. By putting stress testing tools directly on a USB drive, you can run diagnostic tests on any PC quickly without installing bloatware." Classes="TextSubheader" TextWrapping="Wrap" Margin="0,0,0,15"/>
+
+                                        <Separator Background="#222636" Margin="0,0,0,15"/>
+
+                                        <TextBlock Text="How to set up your USB stick:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                                        <TextBlock Text="1. Insert your USB stick into the diagnostic computer." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="2. Create the folders or place the executables in the root directories of the USB:" Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" OCCT: Place OCCT.exe or OCCTPersonal.exe" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" FurMark: Place FurMark.exe or FurMark2.exe" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" Prime95: Place prime95.exe" Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        
+                                        <TextBlock Text="3. Click 'Scan Removable Drives' in the sidebar or 'Rescan' on the Tools page to auto-detect them." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,4,0,10"/>
+
+                                        <TextBlock Text="Manual Override:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,10,0,6"/>
+                                        <TextBlock Text="If you want to run the tools from a local folder instead of a USB stick, click 'Browse...' in the Tools tab and select the executable. The program will remember this path by writing it to tool_paths.txt in the application directory." Classes="TextSubheader" TextWrapping="Wrap" Margin="10,0,0,10"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Classes="CardStyle" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Critical Hardware Thresholds" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushAccentPurple}" Margin="0,0,0,10"/>
+                                        
+                                        <Grid ColumnDefinitions="100,80,*">
+                                            <TextBlock Text="CPU Temp" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                            <TextBlock Grid.Column="1" Text="&lt; 80 °C" Foreground="{DynamicResource BrushSuccess}"/>
+                                            <TextBlock Grid.Column="2" Text="Safe. Under load, modern CPUs run warm. &gt; 90°C might trigger thermal throttling." Classes="TextMuted"/>
+                                        </Grid>
+
+                                        <Grid ColumnDefinitions="100,80,*" Margin="0,6">
+                                            <TextBlock Text="GPU Temp" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                            <TextBlock Grid.Column="1" Text="&lt; 83 °C" Foreground="{DynamicResource BrushSuccess}"/>
+                                            <TextBlock Grid.Column="2" Text="Typical target temperature for modern GPUs. Thermal limits usually trigger at 84-89°C." Classes="TextMuted"/>
+                                        </Grid>
+
+                                        <Grid ColumnDefinitions="100,80,*">
+                                            <TextBlock Text="RAM Load" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                            <TextBlock Grid.Column="1" Text="&lt; 90 %" Foreground="{DynamicResource BrushSuccess}"/>
+                                            <TextBlock Grid.Column="2" Text="System performance degrades heavily if RAM reaches 95% due to pagefile swapping." Classes="TextMuted"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <Border Classes="CardStyle" Margin="0,12,0,0">
+                                    <StackPanel>
+                                        <TextBlock Text="Windows Kernisolierung (Core Isolation) Fallback Setup" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,0,10"/>
+                                        <TextBlock Text="Wenn Windows Kernisolierung (Speicherintegrität) aktiv ist, blockiert das System den direkten Hardware-Treiber dieses Tools. Du kannst das umgehen, indem du HWiNFO64 Portable als treiberlosen Datenlieferanten einbindest:" Classes="TextSubheader" TextWrapping="Wrap" Margin="0,0,0,15"/>
+                                        
+                                        <TextBlock Text="Schritt-für-Schritt-Anleitung:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                                        <TextBlock Text="1. Lade dir HWiNFO Portable herunter (kostenlos auf hwinfo.com)." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="2. Kopiere die Datei HWiNFO64.exe in den 'Tools'-Ordner deiner DiagnoseTool-Ausführung." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="3. Starte HWiNFO über den Button 'HWiNFO64 starten' im Dashboard oder führe es manuell aus." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="4. Aktiviere den Registry-Gadget-Export in HWiNFO:" Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" Öffne das HWiNFO Sensoren-Fenster." Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" Klicke unten rechts auf das Zahnrad-Symbol (Configure Sensors)." Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" Gehe auf den Tab 'HWiNFO Gadget' (ganz rechts)." Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" Setze den Haken bei 'Enable reporting to Gadget'." Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
+                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
+                                            <TextBlock Text=" Wähle die gewünschten Zeilen aus (z.B. 'CPU Die' oder 'GPU Temperature') und hake jeweils 'Report value in Gadget' an." Foreground="{DynamicResource BrushTextSecondary}"/>
+                                        </StackPanel>
+                                        
+                                        <TextBlock Text="5. Fertig! Sobald HWiNFO im Hintergrund läuft, liest das DiagnoseTool alle Temperaturen automatisch ein." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,4,0,10"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+                    </Grid>
+
+                    <!-- PAGE 4: BATTERY TEST -->
+                    <Grid ColumnDefinitions="380,*" IsVisible="{Binding IsBatteryTestSelected}">
+                        <!-- Left Panel: Specs -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
+                            <StackPanel>
+                                <!-- Battery Health Card -->
+                                <Border Classes="CardStyle" Margin="0,0,0,12">
+                                    <StackPanel>
+                                        <TextBlock Text="BATTERIE-GESUNDHEIT" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" FontSize="12" Margin="0,0,0,12"/>
+                                        
+                                        <!-- Big Health Display (Glassmorphism circle) -->
+                                        <Grid Height="120" Width="120" HorizontalAlignment="Center" Margin="0,10,0,16">
+                                            <Ellipse Stroke="#10131E" StrokeThickness="10" />
+                                            <!-- Colored status indicator ring -->
+                                            <Ellipse Stroke="{DynamicResource BrushSuccess}" StrokeThickness="10" StrokeDashArray="10,2"/>
+                                            <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                                                <TextBlock Text="{Binding BatteryInfo.HealthDisplay}" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                                <TextBlock Text="Gesundheit" FontSize="10" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Grid>
+
+                                        <!-- Rating Text -->
+                                        <TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" FontSize="14" Margin="0,0,0,4"
+                                                   Classes.noBattery="{Binding !BatteryInfo.IsPresent}">
+                                            <TextBlock.Styles>
+                                                <Style Selector="TextBlock">
+                                                    <Setter Property="Text" Value="Batterie Betriebsbereit" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}" />
+                                                </Style>
+                                                <Style Selector="TextBlock.noBattery">
+                                                    <Setter Property="Text" Value="Kein Akku erkannt" />
+                                                    <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}" />
+                                                </Style>
+                                            </TextBlock.Styles>
+                                        </TextBlock>
+                                        
+                                        <TextBlock Text="Ein Wert über 80% gilt als gut. Bei Werten darunter empfiehlt Windows einen Austausch." Classes="TextMuted" TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" Margin="0,4,0,0"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Battery Details Card -->
+                                <Border Classes="CardStyle">
+                                    <StackPanel>
+                                        <TextBlock Text="AKKU DETAILS" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12" Margin="0,0,0,12"/>
+
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Hersteller:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.Manufacturer}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                        </Grid>
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Modellname:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.DeviceName}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                        </Grid>
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Chemie:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.Chemistry}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                        </Grid>
+                                        
+                                        <Separator Background="#222636" Margin="0,8"/>
+
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Design-Kapazität:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.DesignCapacityDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                        </Grid>
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Volle Ladekapazität:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.FullChargeCapacityDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                        </Grid>
+
+                                        <Separator Background="#222636" Margin="0,8"/>
+
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Stromquelle:" Classes="TextMuted"/>
+                                            <TextBlock HorizontalAlignment="Right" FontWeight="SemiBold"
+                                                       Classes.isConnected="{Binding BatteryInfo.IsConnectedToAc}">
+                                                <TextBlock.Styles>
+                                                    <Style Selector="TextBlock">
+                                                        <Setter Property="Text" Value="Akku (Entladung)" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrushWarning}" />
+                                                    </Style>
+                                                    <Style Selector="TextBlock.isConnected">
+                                                        <Setter Property="Text" Value="Netzbetrieb (AC)" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrushSuccess}" />
+                                                    </Style>
+                                                </TextBlock.Styles>
+                                            </TextBlock>
+                                        </Grid>
+                                        
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Ladestatus:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.ChargingStatusDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                        </Grid>
+
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Aktuelle Ladung:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.CurrentChargePercent, StringFormat={}{0:F0} %}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                        </Grid>
+
+                                        <Grid Margin="0,4">
+                                            <TextBlock Text="Restlaufzeit:" Classes="TextMuted"/>
+                                            <TextBlock Text="{Binding BatteryInfo.RemainingTimeDisplay}" HorizontalAlignment="Right" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                        </Grid>
+                                        
+                                        <!-- Charge Progress Bar -->
+                                        <ProgressBar Classes="ModernProgressBar" Value="{Binding BatteryInfo.CurrentChargePercent}" Maximum="100" Foreground="{DynamicResource BrushSuccess}" Margin="0,12,0,0"/>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Right Panel: Stress Test -->
+                        <Grid RowDefinitions="Auto,*" Grid.Column="1">
+
+                            <!-- Stress Test Card -->
+                            <Border Grid.Row="0" Classes="CardStyle" Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="AKKU-ENTLADUNGSTEST (30 MINUTEN)" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12" Margin="0,0,0,8"/>
+                                    <TextBlock Text="Dieser Test belastet die Hardware durch kontinuierliches Streaming eines YouTube-Testvideos im Hintergrund, um die reale Entladegeschwindigkeit zu ermitteln." Classes="TextSubheader" TextWrapping="Wrap" Margin="0,0,0,12"/>
+                                    
+                                    <Border Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBlock Text="YouTube Link:" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                                            <TextBlock Text=" https://www.youtube.com/watch?v=yq6c8h0Z3-Q" Foreground="{DynamicResource BrushAccentCyan}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Border>
+
+                                    <!-- Test Controls -->
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        
+                                        <!-- Start Button (visible when not running) -->
+                                        <Button Grid.Column="0" Classes="PrimaryButton" Content="Stresstest starten" 
+                                                Command="{Binding StartBatteryTestCommand}" Height="40" 
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                IsVisible="{Binding !IsBatteryTestRunning}"/>
+
+                                        <!-- Cancel Button (visible when running) -->
+                                        <Button Grid.Column="0" Classes="PrimaryButton" Content="Test abbrechen" 
+                                                Command="{Binding StopBatteryTestCommand}" Height="40" Background="#EF4444"
+                                                HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                IsVisible="{Binding IsBatteryTestRunning}">
+                                            <Button.Styles>
+                                                <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="#F87171" />
+                                                </Style>
+                                                <Style Selector="Button:pressed /template/ ContentPresenter">
+                                                    <Setter Property="Background" Value="#DC2626" />
+                                                </Style>
+                                            </Button.Styles>
+                                        </Button>
+
+                                        <!-- Countdown and Status Display -->
+                                        <Border Grid.Column="1" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1" CornerRadius="8" Padding="16,0" Margin="12,0,0,0" Height="40" VerticalAlignment="Center"
+                                                IsVisible="{Binding IsBatteryTestRunning}">
+                                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                <!-- Pulsing dot -->
+                                                <Ellipse Width="8" Height="8" Fill="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                    <Ellipse.Styles>
+                                                        <Style Selector="Ellipse">
+                                                            <Style.Animations>
+                                                                <Animation Duration="0:0:1.2" IterationCount="Infinite" PlaybackDirection="Alternate">
+                                                                    <KeyFrame KeyTime="0:0:0">
+                                                                        <Setter Property="Opacity" Value="1.0"/>
+                                                                    </KeyFrame>
+                                                                    <KeyFrame KeyTime="0:0:0.6">
+                                                                        <Setter Property="Opacity" Value="0.2"/>
+                                                                    </KeyFrame>
+                                                                </Animation>
+                                                            </Style.Animations>
+                                                        </Style>
+                                                    </Ellipse.Styles>
+                                                </Ellipse>
+                                                <TextBlock Text="Restlaufzeit: " Foreground="{DynamicResource BrushTextSecondary}" FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding BatteryTestRemainingDisplay}" Foreground="{DynamicResource BrushTextPrimary}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center"/>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Results and Logs Tab Grid -->
+                            <Grid RowDefinitions="Auto,*" Grid.Row="1">
+
+                                <!-- Completed Summary Result -->
+                                <Border Grid.Row="0" Classes="CardStyle" Background="#0D2E27" BorderBrush="#155E4C" BorderThickness="1" Margin="0,0,0,12"
+                                        IsVisible="{Binding BatteryTestCompleted}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel Grid.Column="0">
+                                            <TextBlock Text="TEST BEENDET - ZUSAMMENFASSUNG" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" FontSize="11" Margin="0,0,0,6"/>
+                                            <TextBlock Text="{Binding BatteryTestResults}" FontSize="12" Foreground="{DynamicResource BrushTextPrimary}" TextWrapping="Wrap"/>
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Classes="PrimaryButton" Content="PDF-Protokoll speichern" Command="{Binding SaveBatteryReportCommand}" VerticalAlignment="Center" Padding="12,10" Margin="16,0,0,0"/>
+                                    </Grid>
+                                </Border>
+
+                                <!-- Activity Log list -->
+                                <Border Grid.Row="1" Classes="CardStyle">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <TextBlock Grid.Row="0" Text="TESTVERLAUF" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12" Margin="0,0,0,8"/>
+                                        <ListBox Grid.Row="1" ItemsSource="{Binding BatteryTestLog}" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+
+                    <!-- PAGE 5: CPU STRESS TEST -->
+                    <Grid ColumnDefinitions="380,*" IsVisible="{Binding IsCpuStressSelected}">
+                        <!-- Left Panel: Stress Test Controls -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto" Margin="0,0,16,0">
+                            <StackPanel Spacing="16">
+                                <!-- Status Overview -->
+                                <Border Classes="CardStyle" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1" CornerRadius="8" Padding="16">
+                                    <StackPanel Spacing="12">
+                                        <TextBlock Text="STATUS ÜBERSICHT" FontSize="11" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                        
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Test-Status:" Classes="TextMuted"/>
+                                            <TextBlock Grid.Column="1" HorizontalAlignment="Right" FontWeight="SemiBold"
+                                                       Classes.isRunning="{Binding IsCpuStressRunning}">
+                                                <TextBlock.Styles>
+                                                    <Style Selector="TextBlock">
+                                                        <Setter Property="Text" Value="Bereit" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+                                                    </Style>
+                                                    <Style Selector="TextBlock.isRunning">
+                                                        <Setter Property="Text" Value="Aktiv (Stressing...)" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}" />
+                                                    </Style>
+                                                </TextBlock.Styles>
+                                            </TextBlock>
+                                        </Grid>
+                                        
+                                        <Separator Background="#1C1F2E" Height="1"/>
+                                        
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Threads:" Classes="TextMuted"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CpuStressSelectedThreads}" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                        </Grid>
+                                        
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Text="Dauer / Restlaufzeit:" Classes="TextMuted"/>
+                                            <TextBlock Grid.Column="1" Text="{Binding CpuStressRemainingDisplay}" FontWeight="SemiBold" Foreground="{DynamicResource BrushAccentCyan}"/>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Settings Card -->
+                                <Border Classes="CardStyle">
+                                    <StackPanel Spacing="14">
+                                        <TextBlock Text="EINSTELLUNGEN" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12"/>
+                                        
+                                        <!-- Thread Slider -->
+                                        <StackPanel Spacing="6">
+                                            <Grid ColumnDefinitions="*,Auto">
+                                                <TextBlock Text="Threads belasten:" Classes="TextMuted" VerticalAlignment="Center"/>
+                                                <TextBlock Grid.Column="1" Text="{Binding CpuStressSelectedThreads}" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center"/>
+                                            </Grid>
+                                            <Slider Value="{Binding CpuStressSelectedThreads}" Minimum="1" Maximum="{Binding MaxThreads}" SmallChange="1" LargeChange="2" IsSnapToTickEnabled="True" TickFrequency="1" IsEnabled="{Binding !IsCpuStressRunning}"/>
+                                        </StackPanel>
+
+                                        <!-- Duration Selector -->
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="Testdauer:" Classes="TextMuted"/>
+                                            <ComboBox SelectedIndex="{Binding CpuStressSelectedDurationIndex}" IsEnabled="{Binding !IsCpuStressRunning}" HorizontalAlignment="Stretch" Background="#0C0E14" BorderBrush="#1C1F2E">
+                                                <ComboBoxItem Content="30 Sekunden"/>
+                                                <ComboBoxItem Content="1 Minute"/>
+                                                <ComboBoxItem Content="5 Minuten"/>
+                                                <ComboBoxItem Content="10 Minuten"/>
+                                                <ComboBoxItem Content="Unbegrenzt"/>
+                                            </ComboBox>
+                                        </StackPanel>
+
+                                        <!-- Start/Stop Buttons -->
+                                        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                                            <!-- Start Button -->
+                                            <Button Grid.Column="0" Classes="PrimaryButton" Content="Stresstest starten" 
+                                                    Command="{Binding StartCpuStressCommand}" Height="40" 
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    IsVisible="{Binding !IsCpuStressRunning}"/>
+
+                                            <!-- Stop Button -->
+                                            <Button Grid.Column="0" Classes="PrimaryButton" Content="Test abbrechen" 
+                                                    Command="{Binding StopCpuStressCommand}" Height="40" Background="#EF4444"
+                                                    HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
+                                                    IsVisible="{Binding IsCpuStressRunning}">
+                                                <Button.Styles>
+                                                    <Style Selector="Button:pointerover /template/ ContentPresenter">
+                                                        <Setter Property="Background" Value="#F87171" />
+                                                    </Style>
+                                                    <Style Selector="Button:pressed /template/ ContentPresenter">
+                                                        <Setter Property="Background" Value="#DC2626" />
+                                                    </Style>
+                                                </Button.Styles>
+                                            </Button>
+
+                                            <!-- Countdown display when running -->
+                                            <Border Grid.Column="1" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1" CornerRadius="8" Padding="16,0" Margin="12,0,0,0" Height="40" VerticalAlignment="Center"
+                                                    IsVisible="{Binding IsCpuStressRunning}">
+                                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                    <!-- Pulsing dot -->
+                                                    <Ellipse Width="8" Height="8" Fill="#EF4444" Margin="0,0,8,0" VerticalAlignment="Center">
+                                                        <Ellipse.Styles>
+                                                            <Style Selector="Ellipse">
+                                                                <Style.Animations>
+                                                                    <Animation Duration="0:0:1.2" IterationCount="Infinite" PlaybackDirection="Alternate">
+                                                                        <KeyFrame KeyTime="0:0:0">
+                                                                            <Setter Property="Opacity" Value="1.0"/>
+                                                                        </KeyFrame>
+                                                                        <KeyFrame KeyTime="0:0:0.6">
+                                                                            <Setter Property="Opacity" Value="0.2"/>
+                                                                        </KeyFrame>
+                                                                    </Animation>
+                                                                </Style.Animations>
+                                                            </Style>
+                                                        </Ellipse.Styles>
+                                                    </Ellipse>
+                                                    <TextBlock Text="{Binding CpuStressRemainingDisplay}" Foreground="{DynamicResource BrushTextPrimary}" FontWeight="Bold" FontSize="15" VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </Border>
+                                        </Grid>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- Right Panel: Core Monitor & Activity Log -->
+                        <Grid RowDefinitions="*,1.2*" Grid.Column="1">
+                            <!-- Core Monitor Card -->
+                            <Border Grid.Row="0" Classes="CardStyle" Margin="0,0,0,12" Background="#0A0B10">
+                                <Grid RowDefinitions="Auto,*">
+                                    <TextBlock Grid.Row="0" Text="REAL-TIME CORE MONITOR" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12" Margin="0,0,0,10"/>
+                                    
+                                    <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
+                                        <ItemsControl ItemsSource="{Binding Diagnostics.CpuCores}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel HorizontalAlignment="Center"/>
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Width="112" Height="78" BorderBrush="{Binding TemperatureColor}" BorderThickness="1.5" Background="#0C0E14" CornerRadius="8" Padding="10,6" Margin="4">
+                                                        <Grid RowDefinitions="Auto,Auto,Auto">
+                                                            <TextBlock Text="{Binding Name}" FontSize="10" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" HorizontalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+                                                            <TextBlock Grid.Row="1" Text="{Binding TemperatureDisplay}" FontSize="16" FontWeight="Bold" Foreground="{Binding TemperatureColor}" HorizontalAlignment="Center" Margin="0,2,0,2"/>
+                                                            <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto">
+                                                                <TextBlock Grid.Column="0" Text="L:" FontSize="9" Foreground="{DynamicResource BrushTextMuted}" VerticalAlignment="Center"/>
+                                                                <ProgressBar Grid.Column="1" Classes="ModernProgressBar" Value="{Binding Load}" Maximum="100" Height="4" Margin="4,0" VerticalAlignment="Center"/>
+                                                                <TextBlock Grid.Column="2" Text="{Binding LoadDisplay}" FontSize="9" FontWeight="SemiBold" Foreground="{DynamicResource BrushTextSecondary}" VerticalAlignment="Center"/>
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </ScrollViewer>
+                                </Grid>
+                            </Border>
+
+                            <!-- Activity Log & Results Card -->
+                            <Grid RowDefinitions="Auto,*" Grid.Row="1">
+                                <!-- Results Summary -->
+                                <Border Grid.Row="0" Classes="CardStyle" Background="#0D2E27" BorderBrush="#155E4C" BorderThickness="1" Margin="0,0,0,12"
+                                        IsVisible="{Binding CpuStressCompleted}">
+                                    <StackPanel>
+                                        <TextBlock Text="TEST BEENDET - ZUSAMMENFASSUNG" FontWeight="Bold" Foreground="{DynamicResource BrushSuccess}" FontSize="11" Margin="0,0,0,4"/>
+                                        <TextBlock Text="{Binding CpuStressResults}" FontSize="12" Foreground="{DynamicResource BrushTextPrimary}" TextWrapping="Wrap"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- Activity Log list -->
+                                <Border Grid.Row="1" Classes="CardStyle">
+                                    <Grid RowDefinitions="Auto,*">
+                                        <TextBlock Grid.Row="0" Text="TESTVERLAUF" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12" Margin="0,0,0,8"/>
+                                        <ListBox Grid.Row="1" ItemsSource="{Binding CpuStressLog}" Background="#0C0E14" BorderBrush="#1C1F2E" BorderThickness="1"/>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+                        </Grid>
+                    </Grid>
+                    
+                </Grid>
+
+                <!-- ================= STATUS BAR ================= -->
+                <Border Grid.Row="2" Classes="CardStyle" Padding="12,8" Margin="0,12,0,0" Background="#0A0B10" BorderBrush="#1C1F2E">
+                    <Grid ColumnDefinitions="*,Auto">
+                        
+                        <StackPanel Orientation="Horizontal" Grid.Column="0">
+                            <!-- Small indicator dot -->
+                            <Ellipse Width="8" Height="8" Margin="0,0,8,0" VerticalAlignment="Center"
+                                     Classes.isError="{Binding IsStatusError}">
+                                <Ellipse.Styles>
+                                    <Style Selector="Ellipse">
+                                        <Setter Property="Fill" Value="{DynamicResource BrushSuccess}"/>
+                                    </Style>
+                                    <Style Selector="Ellipse.isError">
+                                        <Setter Property="Fill" Value="{DynamicResource BrushDanger}"/>
+                                    </Style>
+                                </Ellipse.Styles>
+                            </Ellipse>
+                            <TextBlock Text="{Binding StatusMessage}" FontSize="12" VerticalAlignment="Center" FontWeight="Medium"
+                                       Classes.isError="{Binding IsStatusError}">
+                                <TextBlock.Styles>
+                                    <Style Selector="TextBlock">
+                                        <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}"/>
+                                    </Style>
+                                    <Style Selector="TextBlock.isError">
+                                        <Setter Property="Foreground" Value="{DynamicResource BrushDanger}"/>
+                                    </Style>
+                                </TextBlock.Styles>
+                            </TextBlock>
+                        </StackPanel>
+
+                        <TextBlock Grid.Column="1" Text="Hardware Monitor Running" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" FontWeight="Bold" VerticalAlignment="Center"/>
+                    </Grid>
+                </Border>
+
+            </Grid>
+        </Grid>
+    </Border>
+</Window>

@@ -1,0 +1,191 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="DiagnoseTool.App"
+             RequestedThemeVariant="Dark">
+    <Application.Styles>
+        <FluentTheme />
+        
+        <!-- Base Typography & Styling -->
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="Segoe UI, Inter, Roboto, sans-serif" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        </Style>
+        
+        <Style Selector="TextBlock.TextHeader">
+            <Setter Property="FontSize" Value="22" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        </Style>
+
+        <Style Selector="TextBlock.TextSubheader">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+        </Style>
+
+        <Style Selector="TextBlock.TextMuted">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextMuted}" />
+        </Style>
+
+        <!-- Rounded Cards -->
+        <Style Selector="Border.CardStyle">
+            <Setter Property="Background" Value="{DynamicResource BrushBgCard}" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="16" />
+            <Setter Property="BoxShadow" Value="0 3 15 0 #4D000000" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#222636" />
+        </Style>
+
+        <!-- Modern Round Buttons -->
+        <Style Selector="Button.ModernButton">
+            <Setter Property="Background" Value="#1D2436" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+            <Setter Property="Padding" Value="16,10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderBrush" Value="#313952" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+        <Style Selector="Button.ModernButton:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#2A344D" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        </Style>
+        <Style Selector="Button.ModernButton:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#151A29" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushAccentCyan}" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        </Style>
+        <Style Selector="Button.ModernButton:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+
+        <!-- Primary Action Button (Glowing Accent) -->
+        <Style Selector="Button.PrimaryButton">
+            <Setter Property="Background" Value="{DynamicResource BrushAccentCyan}" />
+            <Setter Property="Foreground" Value="#08090E" />
+            <Setter Property="Padding" Value="16,10" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="13" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Button.PrimaryButton:pointerover /template/ ContentPresenter">
+            <Setter Property="Background" Value="#40EFFF" />
+            <Setter Property="Foreground" Value="#08090E" />
+            <Setter Property="BoxShadow" Value="0 0 12 0 #8000E5FF" />
+        </Style>
+        <Style Selector="Button.PrimaryButton:pressed /template/ ContentPresenter">
+            <Setter Property="Background" Value="#00C4DB" />
+            <Setter Property="Foreground" Value="#08090E" />
+        </Style>
+        <Style Selector="Button.PrimaryButton:disabled">
+            <Setter Property="Opacity" Value="0.4" />
+        </Style>
+
+        <!-- Sidebar Navigation Buttons -->
+        <Style Selector="RadioButton.SidebarButton">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextSecondary}" />
+            <Setter Property="Padding" Value="16,14" />
+            <Setter Property="FontWeight" Value="Medium" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="GroupName" Value="Navigation" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid>
+                        <Border Name="bgBorder" Background="{TemplateBinding Background}" CornerRadius="6" Margin="4,2"/>
+                        <!-- Active indicator bar -->
+                        <Border Name="indicator" HorizontalAlignment="Left" Width="4" Height="20" Background="{DynamicResource BrushAccentCyan}" CornerRadius="2" IsVisible="False" Margin="8,0,0,0"/>
+                        
+                        <ContentPresenter Name="contentPresenter" 
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" 
+                                          Content="{TemplateBinding Content}" 
+                                          HorizontalAlignment="Left" 
+                                          VerticalAlignment="Center" 
+                                          Margin="24,0,0,0"/>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </Style>
+        <Style Selector="RadioButton.SidebarButton:pointerover /template/ Border#bgBorder">
+            <Setter Property="Background" Value="#1A1C24" />
+        </Style>
+        <Style Selector="RadioButton.SidebarButton:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}" />
+        </Style>
+        <Style Selector="RadioButton.SidebarButton:checked /template/ Border#bgBorder">
+            <Setter Property="Background" Value="#161923" />
+        </Style>
+        <Style Selector="RadioButton.SidebarButton:checked /template/ Border#indicator">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="RadioButton.SidebarButton:checked">
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+
+        <!-- Flat Custom Progress Bar Style -->
+        <Style Selector="ProgressBar.ModernProgressBar">
+            <Setter Property="Background" Value="#10131E" />
+            <Setter Property="Foreground" Value="{DynamicResource BrushAccentCyan}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Height" Value="6" />
+            <Setter Property="CornerRadius" Value="3" />
+        </Style>
+
+        <!-- ListBoxItem styling for battery log -->
+        <Style Selector="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextPrimary}"/>
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="FontFamily" Value="Consolas, Menlo, Monaco, monospace"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="Focusable" Value="False"/>
+        </Style>
+    </Application.Styles>
+
+    <Application.Resources>
+        <!-- Palette Colors -->
+        <Color x:Key="ColorBgMain">#0F111A</Color>
+        <Color x:Key="ColorBgSidebar">#08090E</Color>
+        <Color x:Key="ColorBgCard">#161923</Color>
+        <Color x:Key="ColorBgCardHover">#1E2230</Color>
+        
+        <Color x:Key="ColorAccentCyan">#00E5FF</Color>
+        <Color x:Key="ColorAccentPurple">#A855F7</Color>
+        
+        <Color x:Key="ColorTextPrimary">#F3F4F6</Color>
+        <Color x:Key="ColorTextSecondary">#9CA3AF</Color>
+        <Color x:Key="ColorTextMuted">#4B5563</Color>
+        
+        <Color x:Key="ColorSuccess">#10B981</Color>
+        <Color x:Key="ColorWarning">#F59E0B</Color>
+        <Color x:Key="ColorDanger">#EF4444</Color>
+
+        <!-- Brushes -->
+        <SolidColorBrush x:Key="BrushBgMain" Color="{StaticResource ColorBgMain}" />
+        <SolidColorBrush x:Key="BrushBgSidebar" Color="{StaticResource ColorBgSidebar}" />
+        <SolidColorBrush x:Key="BrushBgCard" Color="{StaticResource ColorBgCard}" />
+        <SolidColorBrush x:Key="BrushBgCardHover" Color="{StaticResource ColorBgCardHover}" />
+        
+        <SolidColorBrush x:Key="BrushAccentCyan" Color="{StaticResource ColorAccentCyan}" />
+        <SolidColorBrush x:Key="BrushAccentPurple" Color="{StaticResource ColorAccentPurple}" />
+        
+        <SolidColorBrush x:Key="BrushTextPrimary" Color="{StaticResource ColorTextPrimary}" />
+        <SolidColorBrush x:Key="BrushTextSecondary" Color="{StaticResource ColorTextSecondary}" />
+        <SolidColorBrush x:Key="BrushTextMuted" Color="{StaticResource ColorTextMuted}" />
+
+        <SolidColorBrush x:Key="BrushSuccess" Color="{StaticResource ColorSuccess}" />
+        <SolidColorBrush x:Key="BrushWarning" Color="{StaticResource ColorWarning}" />
+        <SolidColorBrush x:Key="BrushDanger" Color="{StaticResource ColorDanger}" />
+    </Application.Resources>
+</Application>

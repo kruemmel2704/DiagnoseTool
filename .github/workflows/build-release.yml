@@ -6,40 +6,68 @@ on:
       - 'v*'
 
 jobs:
-  build:
+  build-windows:
     runs-on: windows-latest
     permissions:
       contents: write
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v1.1
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
 
-    - name: Setup NuGet
-      uses: nuget/setup-nuget@v1
+    - name: Publish Windows x64
+      run: dotnet publish DiagnoseTool.csproj -c Release -r win-x64 -o .\publish\win-x64 --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true
 
-    - name: Restore NuGet Packages
-      run: nuget restore DiagnoseTool.csproj
+    - name: Publish Windows arm64
+      run: dotnet publish DiagnoseTool.csproj -c Release -r win-arm64 -o .\publish\win-arm64 --self-contained false -p:PublishSingleFile=true -p:PublishReadyToRun=true
 
-    - name: Build Project
-      run: msbuild DiagnoseTool.csproj /p:Configuration=Release /p:Platform=x64 /p:RuntimeIdentifier=win-x64
-
-    - name: Prepare Release Package
+    - name: Prepare Windows Executables
       shell: pwsh
       run: |
-        New-Item -ItemType Directory -Force -Path .\publish
-        $exe = (Get-ChildItem -Path .\bin -Filter DiagnoseTool.exe -Recurse | Select-Object -First 1).FullName
-        $outDir = Split-Path -Parent $exe
-        Copy-Item -Path "$outDir\*" -Destination .\publish\ -Recurse
-        Invoke-WebRequest -Uri "https://github.com/namazso/PawnIO.Setup/releases/latest/download/PawnIO_setup.exe" -OutFile ".\publish\PawnIO_setup.exe"
-        Compress-Archive -Path .\publish\* -DestinationPath .\DiagnoseTool.zip
+        Copy-Item -Path .\publish\win-x64\DiagnoseTool.exe -Destination .\DiagnoseTool-Windows-x64.exe
+        Copy-Item -Path .\publish\win-arm64\DiagnoseTool.exe -Destination .\DiagnoseTool-Windows-arm64.exe
 
-    - name: Create Release
+    - name: Create Release and Upload Windows Files
       uses: softprops/action-gh-release@v1
       with:
-        files: DiagnoseTool.zip
+        files: |
+          DiagnoseTool-Windows-x64.exe
+          DiagnoseTool-Windows-arm64.exe
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  build-macos:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Build Universal App Bundle
+      run: |
+        chmod +x create_app_bundle.sh
+        ./create_app_bundle.sh
+
+    - name: Create macOS DMG
+      run: |
+        hdiutil create -volname "DiagnoseTool" -srcfolder DiagnoseTool.app -ov -format UDZO DiagnoseTool-macOS-Universal.dmg
+
+    - name: Create Release and Upload macOS DMG
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          DiagnoseTool-macOS-Universal.dmg
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

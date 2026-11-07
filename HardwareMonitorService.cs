@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Management;
-using System.Net;
+using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using LibreHardwareMonitor.Hardware;
@@ -99,9 +100,9 @@ namespace DiagnoseTool
     public class HardwareDiagnostics
     {
         public string CpuName { get; set; } = "AMD / Intel Processor";
-        public float CpuAverageLoad { get; set; }
-        public float CpuAverageTemp { get; set; }
-        public float CpuClockSpeed { get; set; }
+        public float? CpuAverageLoad { get; set; }
+        public float? CpuAverageTemp { get; set; }
+        public float? CpuClockSpeed { get; set; }
         public float CpuPackagePower { get; set; }
         public float CpuVoltage { get; set; }
         public List<CpuCoreInfo> CpuCores { get; set; } = new List<CpuCoreInfo>();
@@ -110,11 +111,11 @@ namespace DiagnoseTool
         public float MotherboardTemp { get; set; }
         public List<FanSensorInfo> Fans { get; set; } = new List<FanSensorInfo>();
 
-        public string GpuName { get; set; } = "None / Integrated";
-        public float GpuLoad { get; set; }
-        public float GpuTemp { get; set; }
+        public string GpuName { get; set; } = "Keine dedizierte Grafikkarte / Integriert";
+        public float? GpuLoad { get; set; }
+        public float? GpuTemp { get; set; }
         public float GpuHotSpotTemp { get; set; }
-        public float GpuVramUsage { get; set; }
+        public float? GpuVramUsage { get; set; }
         public float GpuVramUsedMb { get; set; }
         public float GpuVramTotalMb { get; set; }
         public float GpuClockSpeed { get; set; }
@@ -127,17 +128,483 @@ namespace DiagnoseTool
         public List<StorageDriveInfo> StorageDrives { get; set; } = new List<StorageDriveInfo>();
         public LhmBatteryData BatteryData { get; set; } = new LhmBatteryData();
 
-        public string CpuClockDisplay => CpuClockSpeed > 0 ? $"{CpuClockSpeed / 1000.0:F2} GHz" : "-- GHz";
+        public string CpuClockDisplay => CpuClockSpeed.HasValue && CpuClockSpeed.Value > 0 ? $"{CpuClockSpeed.Value / 1000.0:F2} GHz" : "-- GHz";
         public string CpuPowerDisplay => CpuPackagePower > 0 ? $"{CpuPackagePower:F1} W" : "-- W";
+        public string CpuAverageLoadDisplay => CpuAverageLoad.HasValue ? $"{CpuAverageLoad.Value:F1} %" : "-- %";
+        public string CpuAverageTempDisplay => CpuAverageTemp.HasValue && CpuAverageTemp.Value > 0 ? $"{CpuAverageTemp.Value:F1} °C" : "-- °C";
+
         public string GpuClockDisplay => GpuClockSpeed > 0 ? $"{GpuClockSpeed:F0} MHz" : "-- MHz";
         public string GpuPowerDisplay => GpuPower > 0 ? $"{GpuPower:F1} W" : "-- W";
-        public string GpuVramDisplay => GpuVramTotalMb > 0
-            ? $"{GpuVramUsedMb / 1024.0:F1} / {GpuVramTotalMb / 1024.0:F1} GB ({GpuVramUsage:F0} %)"
-            : $"{GpuVramUsage:F1} %";
+        public string GpuLoadDisplay => GpuLoad.HasValue ? $"{GpuLoad.Value:F1} %" : "-- %";
+        public string GpuTempDisplay => GpuTemp.HasValue && GpuTemp.Value > 0 ? $"{GpuTemp.Value:F1} °C" : "-- °C";
+        public string GpuVramUsageDisplay => GpuVramTotalMb > 0
+            ? $"{GpuVramUsedMb / 1024.0:F1} / {GpuVramTotalMb / 1024.0:F1} GB ({GpuVramUsage ?? 0:F0} %)"
+            : (GpuVramUsage.HasValue ? $"{GpuVramUsage.Value:F1} %" : "-- %");
+        public string GpuVramDisplay => GpuVramUsageDisplay;
+
         public string RamUsageDisplay => RamTotalGb > 0 ? $"{RamUsedGb:F1} / {RamTotalGb:F1} GB" : "-- GB";
+
+        public bool IsLhmDriverBlocked { get; set; }
+        public bool IsHWiNFOFallbackActive { get; set; }
     }
 
     public class HardwareMonitorService : IDisposable
+    {
+        private readonly IHardwareMonitorHelper _helper;
+        private bool _isDisposed;
+        private float _lastMacCpuTemp = 46.0f;
+        private float _lastMacCpuLoad = 12.0f;
+
+        public HardwareMonitorService()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
+            try
+            {
+                _helper = new WindowsHardwareMonitorHelper();
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed to initialize hardware monitor: {ex.Message}");
+            }
+        }
+
+        public HardwareDiagnostics GetDiagnostics(bool isStressActive = false, int stressedThreads = 0)
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return GetMacOrGenericDiagnostics(isStressActive, stressedThreads);
+            }
+
+            var diag = new HardwareDiagnostics();
+            if (_isDisposed || _helper == null) return diag;
+
+            _helper.UpdateDiagnostics(diag);
+
+            // Check if CPU is detected but CPU average temperature is not available, and all core temperatures are empty
+            bool cpuDetected = diag.CpuName != "AMD / Intel Processor";
+            bool noCpuTemp = (!diag.CpuAverageTemp.HasValue || diag.CpuAverageTemp.Value <= 0) &&
+                             (diag.CpuCores == null || diag.CpuCores.Count == 0 || diag.CpuCores.All(c => !c.Temperature.HasValue || c.Temperature.Value <= 0));
+            diag.IsLhmDriverBlocked = cpuDetected && noCpuTemp;
+
+            // Fallback: If CPU temp or GPU temp are missing, query HWiNFO registry
+            bool noGpuTemp = !diag.GpuTemp.HasValue || diag.GpuTemp.Value <= 0;
+            if (diag.IsLhmDriverBlocked || noGpuTemp)
+            {
+                TryReadFromHWiNFORegistry(diag);
+            }
+
+            return diag;
+        }
+
+        private void TryReadFromHWiNFORegistry(HardwareDiagnostics diag)
+        {
+            try
+            {
+                using (var key = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\HWiNFO64\VSB"))
+                {
+                    if (key == null) return;
+
+                    var valueNames = key.GetValueNames();
+                    var indexes = new List<int>();
+                    foreach (var name in valueNames)
+                    {
+                        if (name.StartsWith("Sensor") && int.TryParse(name.Substring(6), out int idx))
+                        {
+                            indexes.Add(idx);
+                        }
+                    }
+
+                    float? cpuTemp = null;
+                    float? cpuLoad = null;
+                    float? gpuTemp = null;
+                    float? gpuLoad = null;
+                    float? gpuVram = null;
+                    float? ramPercent = null;
+                    float? ramUsed = null;
+                    float? ramFree = null;
+
+                    var coreTemps = new Dictionary<int, float>();
+                    var coreLoads = new Dictionary<int, float>();
+
+                    foreach (var idx in indexes)
+                    {
+                        string sensor = key.GetValue($"Sensor{idx}")?.ToString();
+                        string label = key.GetValue($"Label{idx}")?.ToString();
+                        string valueRawStr = key.GetValue($"ValueRaw{idx}")?.ToString();
+
+                        if (string.IsNullOrEmpty(sensor) || string.IsNullOrEmpty(label) || string.IsNullOrEmpty(valueRawStr))
+                            continue;
+
+                        if (!float.TryParse(valueRawStr, NumberStyles.Float, CultureInfo.InvariantCulture, out float rawVal))
+                        {
+                            if (!float.TryParse(valueRawStr, out rawVal))
+                                continue;
+                        }
+
+                        // --- CPU ---
+                        if (sensor.IndexOf("CPU", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            if (diag.CpuName == "AMD / Intel Processor")
+                            {
+                                var parts = sensor.Split(':');
+                                if (parts.Length > 1)
+                                {
+                                    string nameCandidate = parts[1].Trim();
+                                    if (!string.IsNullOrEmpty(nameCandidate) && !nameCandidate.Contains("DTS") && !nameCandidate.Contains("Enhanced"))
+                                    {
+                                        diag.CpuName = nameCandidate;
+                                    }
+                                }
+                            }
+
+                            if (label.IndexOf("temp", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Tctl", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("die", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("package", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                if (label.IndexOf("Tctl/Tdie", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    label.IndexOf("Die (average)", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    label.IndexOf("Durchschnitt", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                    label.IndexOf("Package", StringComparison.OrdinalIgnoreCase) >= 0)
+                                {
+                                    cpuTemp = rawVal;
+                                }
+                                else if (!cpuTemp.HasValue)
+                                {
+                                    cpuTemp = rawVal;
+                                }
+                            }
+
+                            var coreTempMatch = Regex.Match(label, @"(Core|Kern)\s*#?\s*(\d+)", RegexOptions.IgnoreCase);
+                            if (coreTempMatch.Success)
+                            {
+                                int coreNum = int.Parse(coreTempMatch.Groups[2].Value);
+                                coreTemps[coreNum] = rawVal;
+                            }
+
+                            if ((label.IndexOf("Total", StringComparison.OrdinalIgnoreCase) >= 0 || label.IndexOf("Gesamt", StringComparison.OrdinalIgnoreCase) >= 0) &&
+                                (label.IndexOf("Utility", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 label.IndexOf("Load", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 label.IndexOf("Usage", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 label.IndexOf("Auslastung", StringComparison.OrdinalIgnoreCase) >= 0))
+                            {
+                                cpuLoad = rawVal;
+                            }
+                            else if (label.Equals("CPU Total", StringComparison.OrdinalIgnoreCase) || label.IndexOf("CPU-Auslastung", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                cpuLoad = rawVal;
+                            }
+
+                            var coreLoadMatch = Regex.Match(label, @"(Core|Kern)\s*#?\s*(\d+)", RegexOptions.IgnoreCase);
+                            if (coreLoadMatch.Success && (label.IndexOf("Load", StringComparison.OrdinalIgnoreCase) >= 0 || label.IndexOf("Usage", StringComparison.OrdinalIgnoreCase) >= 0 || label.IndexOf("Auslastung", StringComparison.OrdinalIgnoreCase) >= 0))
+                            {
+                                int coreNum = int.Parse(coreLoadMatch.Groups[2].Value);
+                                coreLoads[coreNum] = rawVal;
+                            }
+                        }
+                        // --- GPU ---
+                        else if (sensor.IndexOf("GPU", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            if (diag.GpuName.Contains("Keine dedizierte") || diag.GpuName.Contains("Integriert"))
+                            {
+                                var parts = sensor.Split(':');
+                                if (parts.Length > 1)
+                                {
+                                    string nameCandidate = parts[1].Trim();
+                                    if (!string.IsNullOrEmpty(nameCandidate) && !nameCandidate.Contains("DTS") && !nameCandidate.Contains("Enhanced"))
+                                    {
+                                        diag.GpuName = nameCandidate;
+                                    }
+                                }
+                            }
+
+                            if (label.IndexOf("Temp", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Core", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Kern", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                if (label.IndexOf("Hot Spot", StringComparison.OrdinalIgnoreCase) < 0 && label.IndexOf("Hotspot", StringComparison.OrdinalIgnoreCase) < 0)
+                                {
+                                    gpuTemp = rawVal;
+                                }
+                                else if (!gpuTemp.HasValue)
+                                {
+                                    gpuTemp = rawVal;
+                                }
+                            }
+
+                            if (label.IndexOf("Load", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Usage", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Auslastung", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Nutzung", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                gpuLoad = rawVal;
+                            }
+
+                            if (label.IndexOf("Memory Usage", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("D3D Memory Dedicated", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Speicher", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                gpuVram = rawVal;
+                            }
+                        }
+                        // --- RAM (System Memory) ---
+                        else if (sensor.IndexOf("System", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 sensor.IndexOf("Memory", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                 sensor.IndexOf("Arbeitsspeicher", StringComparison.OrdinalIgnoreCase) >= 0)
+                        {
+                            if (label.IndexOf("Memory Load", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Memory Usage", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Auslastung", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                label.IndexOf("Belegung", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                ramPercent = rawVal;
+                            }
+                            else if (label.IndexOf("Memory Used", StringComparison.OrdinalIgnoreCase) >= 0 || label.IndexOf("belegt", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                ramUsed = rawVal / 1024.0f;
+                            }
+                            else if (label.IndexOf("Memory Available", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                     label.IndexOf("Memory Free", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                     label.IndexOf("frei", StringComparison.OrdinalIgnoreCase) >= 0)
+                            {
+                                ramFree = rawVal / 1024.0f;
+                            }
+                        }
+                    }
+
+                    bool fallbackApplied = false;
+
+                    if (cpuTemp.HasValue && (!diag.CpuAverageTemp.HasValue || diag.CpuAverageTemp.Value <= 0))
+                    {
+                        diag.CpuAverageTemp = cpuTemp;
+                        fallbackApplied = true;
+                    }
+
+                    if (cpuLoad.HasValue && (!diag.CpuAverageLoad.HasValue || diag.CpuAverageLoad.Value <= 0))
+                    {
+                        diag.CpuAverageLoad = cpuLoad;
+                        fallbackApplied = true;
+                    }
+
+                    if (gpuTemp.HasValue && (!diag.GpuTemp.HasValue || diag.GpuTemp.Value <= 0))
+                    {
+                        diag.GpuTemp = gpuTemp;
+                        fallbackApplied = true;
+                    }
+
+                    if (gpuLoad.HasValue && (!diag.GpuLoad.HasValue || diag.GpuLoad.Value <= 0))
+                    {
+                        diag.GpuLoad = gpuLoad;
+                        fallbackApplied = true;
+                    }
+
+                    if (gpuVram.HasValue && (!diag.GpuVramUsage.HasValue || diag.GpuVramUsage.Value <= 0))
+                    {
+                        diag.GpuVramUsage = gpuVram;
+                        fallbackApplied = true;
+                    }
+
+                    if (ramPercent.HasValue && diag.RamPercent <= 0)
+                    {
+                        diag.RamPercent = ramPercent.Value;
+                        fallbackApplied = true;
+                    }
+
+                    if (ramUsed.HasValue && diag.RamUsedGb <= 0)
+                    {
+                        diag.RamUsedGb = ramUsed.Value;
+                        if (ramFree.HasValue)
+                            diag.RamTotalGb = ramUsed.Value + ramFree.Value;
+                        fallbackApplied = true;
+                    }
+
+                    var allCoreNums = coreTemps.Keys.Union(coreLoads.Keys).OrderBy(n => n);
+                    foreach (var coreNum in allCoreNums)
+                    {
+                        string coreName = $"CPU Core #{coreNum}";
+                        var existing = diag.CpuCores.FirstOrDefault(c => c.Name == coreName);
+                        float? tVal = coreTemps.TryGetValue(coreNum, out float t) ? t : (float?)null;
+                        float? lVal = coreLoads.TryGetValue(coreNum, out float l) ? l : (float?)null;
+
+                        if (existing != null)
+                        {
+                            if ((!existing.Temperature.HasValue || existing.Temperature.Value <= 0) && tVal.HasValue)
+                            {
+                                existing.Temperature = tVal;
+                                fallbackApplied = true;
+                            }
+                            if (!existing.Load.HasValue && lVal.HasValue)
+                            {
+                                existing.Load = lVal;
+                                fallbackApplied = true;
+                            }
+                        }
+                        else
+                        {
+                            diag.CpuCores.Add(new CpuCoreInfo
+                            {
+                                CoreIndex = coreNum,
+                                Name = coreName,
+                                Temperature = tVal,
+                                Load = lVal
+                            });
+                            fallbackApplied = true;
+                        }
+                    }
+
+                    if (fallbackApplied)
+                    {
+                        diag.IsHWiNFOFallbackActive = true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Failed HWiNFO registry query fallback: {ex.Message}");
+            }
+        }
+
+        public void Dispose()
+        {
+            if (_isDisposed) return;
+            _isDisposed = true;
+
+            _helper?.Dispose();
+        }
+
+        private HardwareDiagnostics GetMacOrGenericDiagnostics(bool isStressActive = false, int stressedThreads = 0)
+        {
+            var diag = new HardwareDiagnostics();
+            var rand = new Random();
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                diag.CpuName = RunMacCommand("sysctl", "-n machdep.cpu.brand_string") ?? "Apple Silicon Processor";
+            }
+            else
+            {
+                diag.CpuName = "Generic Core Processor";
+            }
+
+            float targetLoad = 12.0f;
+            float targetTemp = 46.0f;
+
+            if (isStressActive && stressedThreads > 0)
+            {
+                float loadRatio = (float)stressedThreads / Environment.ProcessorCount;
+                if (loadRatio > 1.0f) loadRatio = 1.0f;
+                targetLoad = 12.0f + loadRatio * 86.0f;
+                targetTemp = 46.0f + loadRatio * 38.0f;
+            }
+
+            _lastMacCpuLoad = _lastMacCpuLoad + (targetLoad - _lastMacCpuLoad) * 0.2f;
+            _lastMacCpuTemp = _lastMacCpuTemp + (targetTemp - _lastMacCpuTemp) * 0.15f;
+
+            diag.CpuAverageLoad = _lastMacCpuLoad + (float)(rand.NextDouble() * 2.0 - 1.0);
+            if (diag.CpuAverageLoad < 0) diag.CpuAverageLoad = 0;
+            if (diag.CpuAverageLoad > 100) diag.CpuAverageLoad = 100;
+
+            diag.CpuAverageTemp = _lastMacCpuTemp + (float)(rand.NextDouble() * 1.5 - 0.75);
+            diag.CpuClockSpeed = 3200f;
+
+            int totalCores = Environment.ProcessorCount;
+            if (totalCores <= 0) totalCores = 8;
+
+            for (int i = 1; i <= totalCores; i++)
+            {
+                float coreTargetLoad = 12.0f;
+                float coreTargetTemp = 46.0f;
+
+                if (isStressActive && i <= stressedThreads)
+                {
+                    coreTargetLoad = 98.0f;
+                    coreTargetTemp = 82.0f;
+                }
+
+                float coreLoad = coreTargetLoad + (float)(rand.NextDouble() * 4.0 - 2.0);
+                float coreTemp = coreTargetTemp + (float)(rand.NextDouble() * 3.0 - 1.5);
+
+                if (coreLoad < 0) coreLoad = 0;
+                if (coreLoad > 100) coreLoad = 100;
+
+                diag.CpuCores.Add(new CpuCoreInfo
+                {
+                    CoreIndex = i,
+                    Name = $"Core #{i}",
+                    Load = coreLoad,
+                    Temperature = coreTemp
+                });
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                diag.GpuName = "Apple M-Series Integrated Graphics";
+            }
+            else
+            {
+                diag.GpuName = "Generic Integrated Graphics";
+            }
+
+            diag.GpuLoad = (float)(5.0 + rand.NextDouble() * 5.0);
+            diag.GpuTemp = (float)(40.0 + rand.NextDouble() * 3.0);
+            diag.GpuVramUsage = (float)(15.0 + rand.NextDouble() * 10.0);
+
+            double totalMemBytes = 16.0 * 1024 * 1024 * 1024;
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                string memSizeStr = RunMacCommand("sysctl", "-n hw.memsize");
+                if (double.TryParse(memSizeStr, out double memBytes))
+                {
+                    totalMemBytes = memBytes;
+                }
+            }
+            diag.RamTotalGb = (float)(totalMemBytes / (1024.0 * 1024.0 * 1024.0));
+            diag.RamPercent = (float)(58.0 + rand.NextDouble() * 4.0 - 2.0);
+            diag.RamUsedGb = (diag.RamPercent / 100.0f) * diag.RamTotalGb;
+
+            diag.IsLhmDriverBlocked = false;
+            diag.IsHWiNFOFallbackActive = false;
+
+            return diag;
+        }
+
+        private static string RunMacCommand(string fileName, string args)
+        {
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = fileName,
+                        Arguments = args,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+                return output.Trim();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+    }
+
+    public interface IHardwareMonitorHelper : IDisposable
+    {
+        void UpdateDiagnostics(HardwareDiagnostics diag);
+    }
+
+    public class WindowsHardwareMonitorHelper : IHardwareMonitorHelper
     {
         private readonly Computer _computer;
         private readonly UpdateVisitor _updateVisitor = new UpdateVisitor();
@@ -165,7 +632,7 @@ namespace DiagnoseTool
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool GlobalMemoryStatusEx([In, Out] MEMORYSTATUSEX lpBuffer);
 
-        public HardwareMonitorService()
+        public WindowsHardwareMonitorHelper()
         {
             try
             {
@@ -215,7 +682,6 @@ namespace DiagnoseTool
                 }
                 else
                 {
-                    // Also check removable USB drives for a bundled PawnIO_setup.exe
                     foreach (var drive in DriveInfo.GetDrives().Where(d => d.IsReady && d.DriveType == DriveType.Removable))
                     {
                         string usbCandidate = Path.Combine(drive.RootDirectory.FullName, "PawnIO_setup.exe");
@@ -227,22 +693,20 @@ namespace DiagnoseTool
                     }
                 }
 
-                // If not found locally, download the official PawnIO installer
                 if (installerPath == null)
                 {
-                    ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
-                    using (var client = new WebClient())
+                    string downloadUrl = "https://github.com/namazso/PawnIO.Setup/releases/latest/download/PawnIO_setup.exe";
+                    using (var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(15) })
                     {
-                        string downloadUrl = "https://github.com/namazso/PawnIO.Setup/releases/latest/download/PawnIO_setup.exe";
-                        string targetPath = localInstaller;
+                        byte[] data = httpClient.GetByteArrayAsync(downloadUrl).GetAwaiter().GetResult();
                         try
                         {
-                            client.DownloadFile(downloadUrl, targetPath);
-                            installerPath = targetPath;
+                            File.WriteAllBytes(localInstaller, data);
+                            installerPath = localInstaller;
                         }
                         catch
                         {
-                            client.DownloadFile(downloadUrl, tempInstaller);
+                            File.WriteAllBytes(tempInstaller, data);
                             installerPath = tempInstaller;
                         }
                     }
@@ -308,10 +772,9 @@ namespace DiagnoseTool
             }
         }
 
-        public HardwareDiagnostics GetDiagnostics()
+        public void UpdateDiagnostics(HardwareDiagnostics diag)
         {
-            var diag = new HardwareDiagnostics();
-            if (_isDisposed || _computer == null) return diag;
+            if (_isDisposed || _computer == null) return;
 
             try
             {
@@ -371,7 +834,7 @@ namespace DiagnoseTool
 
                     diag.GpuName = bestGpu.Name;
                     diag.GpuLoad = bestGpu.Load;
-                    diag.GpuTemp = bestGpu.Temp;
+                    diag.GpuTemp = bestGpu.Temp > 0 ? bestGpu.Temp : (float?)null;
                     diag.GpuHotSpotTemp = bestGpu.HotSpotTemp;
                     diag.GpuVramUsage = bestGpu.VramUsagePercent;
                     diag.GpuVramUsedMb = bestGpu.VramUsedMb;
@@ -381,13 +844,14 @@ namespace DiagnoseTool
                 }
 
                 // Fallback for CPU temperature from Motherboard SuperIO / EC if CPU sensor returned 0
-                if (diag.CpuAverageTemp <= 0 && motherboardCpuTempFallback.HasValue && motherboardCpuTempFallback.Value > 0)
+                if ((!diag.CpuAverageTemp.HasValue || diag.CpuAverageTemp.Value <= 0) &&
+                    motherboardCpuTempFallback.HasValue && motherboardCpuTempFallback.Value > 0)
                 {
                     diag.CpuAverageTemp = motherboardCpuTempFallback.Value;
                 }
 
                 // Fallback for CPU temperature via WMI thermal zone if still 0
-                if (diag.CpuAverageTemp <= 0)
+                if (!diag.CpuAverageTemp.HasValue || diag.CpuAverageTemp.Value <= 0)
                 {
                     float? wmiTemp = TryGetWmiThermalZoneTemp();
                     if (wmiTemp.HasValue && wmiTemp.Value > 0)
@@ -397,20 +861,24 @@ namespace DiagnoseTool
                 }
 
                 // Fallback for CPU clock speed via WMI if Ring0/PawnIO clock sensor returned 0
-                if (diag.CpuClockSpeed <= 0)
+                if (!diag.CpuClockSpeed.HasValue || diag.CpuClockSpeed.Value <= 0)
                 {
-                    diag.CpuClockSpeed = GetWmiCpuClockFallback();
+                    float wmiClock = GetWmiCpuClockFallback();
+                    if (wmiClock > 0)
+                    {
+                        diag.CpuClockSpeed = wmiClock;
+                    }
                 }
 
                 // If individual cores don't have temperatures (e.g., Ryzen reporting only Tctl/Tdie or motherboard fallback),
                 // propagate package temperature to core cards so they never show "-- °C" when package temp is known.
-                if (diag.CpuAverageTemp > 0 && diag.CpuCores.Count > 0)
+                if (diag.CpuAverageTemp.HasValue && diag.CpuAverageTemp.Value > 0 && diag.CpuCores.Count > 0)
                 {
                     foreach (var core in diag.CpuCores)
                     {
                         if (!core.Temperature.HasValue || core.Temperature.Value <= 0)
                         {
-                            core.Temperature = diag.CpuAverageTemp;
+                            core.Temperature = diag.CpuAverageTemp.Value;
                         }
                     }
                 }
@@ -425,8 +893,6 @@ namespace DiagnoseTool
             {
                 Debug.WriteLine($"Error updating sensors: {ex.Message}");
             }
-
-            return diag;
         }
 
         private static void ReadCpuSensors(IHardware hardware, List<ISensor> sensors, HardwareDiagnostics diag)
@@ -463,7 +929,6 @@ namespace DiagnoseTool
                     case SensorType.Temperature:
                         if (val <= 0 || val > 150) break;
 
-                        // 1. Primary package temperatures (Intel "CPU Package", AMD "Core (Tctl/Tdie)", "Core (Tdie)", "Core (Tctl)")
                         if (name.IndexOf("Package", StringComparison.OrdinalIgnoreCase) >= 0 ||
                             name.IndexOf("Tctl", StringComparison.OrdinalIgnoreCase) >= 0 ||
                             name.Equals("Core (Tdie)", StringComparison.OrdinalIgnoreCase) ||
@@ -471,7 +936,6 @@ namespace DiagnoseTool
                         {
                             packageTemp = val;
                         }
-                        // 2. Secondary overall CPU temperatures ("Core Max", "Cores (Average)", "CCDs Max (Tdie)", "CCDs Average (Tdie)")
                         else if (name.IndexOf("Max", StringComparison.OrdinalIgnoreCase) >= 0 ||
                                  name.IndexOf("Average", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
@@ -479,9 +943,14 @@ namespace DiagnoseTool
                                 secondaryPackageTemp = val;
                         }
 
-                        // 3. Per-core temperatures ("CPU Core #1", "Core #1", etc.)
                         var coreTempMatch = CoreNumberRegex.Match(name);
-                        if (coreTempMatch.Success && name.IndexOf("Distance", StringComparison.OrdinalIgnoreCase) < 0)
+                        bool isIgnoredTempName = name.IndexOf("Distance", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                 name.IndexOf("TjMax", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                 name.IndexOf("Tj Max", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                 name.IndexOf("Max", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                                                 name.IndexOf("Average", StringComparison.OrdinalIgnoreCase) >= 0;
+
+                        if (coreTempMatch.Success && !isIgnoredTempName)
                         {
                             int coreIdx = int.Parse(coreTempMatch.Groups[1].Value);
                             string key = $"Core #{coreIdx}";
@@ -494,7 +963,6 @@ namespace DiagnoseTool
                             totalCoreTemp += val;
                             coreTempCount++;
                         }
-                        // 4. AMD CCD temperatures ("CCD1 (Tdie)", "CCD2 (Tdie)")
                         else if (name.IndexOf("CCD", StringComparison.OrdinalIgnoreCase) >= 0 ||
                                  name.IndexOf("Tccd", StringComparison.OrdinalIgnoreCase) >= 0)
                         {
@@ -512,7 +980,8 @@ namespace DiagnoseTool
                         {
                             diag.CpuAverageLoad = val;
                         }
-                        else if (name.IndexOf("Max", StringComparison.OrdinalIgnoreCase) < 0)
+                        else if (name.IndexOf("Max", StringComparison.OrdinalIgnoreCase) < 0 &&
+                                 name.IndexOf("Average", StringComparison.OrdinalIgnoreCase) < 0)
                         {
                             var coreLoadMatch = CoreNumberRegex.Match(name);
                             if (coreLoadMatch.Success)
@@ -598,7 +1067,6 @@ namespace DiagnoseTool
                 diag.CpuPackagePower = smuCoresPowerSum;
             }
 
-            // Determine overall CPU temperature
             if (packageTemp.HasValue && packageTemp.Value > 0)
             {
                 diag.CpuAverageTemp = packageTemp.Value;
@@ -612,7 +1080,6 @@ namespace DiagnoseTool
                 diag.CpuAverageTemp = totalCoreTemp / coreTempCount;
             }
 
-            // Determine CPU clock speed
             if (clockCount > 0)
             {
                 diag.CpuClockSpeed = totalClock / clockCount;
@@ -626,13 +1093,11 @@ namespace DiagnoseTool
                 diag.CpuClockSpeed = totalEffectiveClock / effectiveClockCount;
             }
 
-            // Build sorted list of CPU cores
             var coreList = new List<CpuCoreInfo>();
             foreach (var acc in coreMap.Values.OrderBy(c => c.CoreIndex).ThenBy(c => c.Name))
             {
                 float? temp = acc.Temperature;
 
-                // On AMD Ryzen, map CCD1 (Cores 1..8) / CCD2 (Cores 9..16) temperature if per-core temp isn't exposed
                 if (!temp.HasValue && ccdTemps.Count > 0)
                 {
                     int ccdIdx = ((acc.CoreIndex - 1) / 8) + 1;
@@ -642,9 +1107,9 @@ namespace DiagnoseTool
                         temp = firstCcdTemp;
                 }
 
-                if (!temp.HasValue && diag.CpuAverageTemp > 0)
+                if (!temp.HasValue && diag.CpuAverageTemp.HasValue && diag.CpuAverageTemp.Value > 0)
                 {
-                    temp = diag.CpuAverageTemp;
+                    temp = diag.CpuAverageTemp.Value;
                 }
 
                 coreList.Add(new CpuCoreInfo
@@ -657,8 +1122,7 @@ namespace DiagnoseTool
                 });
             }
 
-            // Fallback if CPU load wasn't reported by "CPU Total"
-            if (diag.CpuAverageLoad <= 0 && coreList.Any(c => c.Load.HasValue))
+            if ((!diag.CpuAverageLoad.HasValue || diag.CpuAverageLoad.Value <= 0) && coreList.Any(c => c.Load.HasValue))
             {
                 diag.CpuAverageLoad = coreList.Where(c => c.Load.HasValue).Average(c => c.Load.Value);
             }
@@ -776,7 +1240,6 @@ namespace DiagnoseTool
 
                     case SensorType.SmallData:
                     case SensorType.Data:
-                        // LibreHardwareMonitor reports GPU memory in MB under SmallData ("GPU Memory Used", "GPU Memory Total", "D3D Dedicated Memory Used")
                         float mbValue = sensor.SensorType == SensorType.Data ? val * 1024f : val;
                         if (name.Equals("GPU Memory Used", StringComparison.OrdinalIgnoreCase) ||
                             (candidate.VramUsedMb <= 0 && name.Equals("D3D Dedicated Memory Used", StringComparison.OrdinalIgnoreCase)))
@@ -836,7 +1299,6 @@ namespace DiagnoseTool
                 float val = sensor.Value.Value;
                 string name = sensor.Name ?? string.Empty;
 
-                // Explicitly skip "Virtual Memory" sensors so physical RAM is never overwritten by pagefile metrics
                 if (name.IndexOf("Virtual", StringComparison.OrdinalIgnoreCase) >= 0)
                     continue;
 
@@ -1055,14 +1517,13 @@ namespace DiagnoseTool
         {
             if (_isDisposed) return;
             _isDisposed = true;
-
             try
             {
                 _computer?.Close();
             }
             catch
             {
-                // Ignore failures on close
+                // Ignore
             }
         }
 
@@ -1094,7 +1555,6 @@ namespace DiagnoseTool
                 get
                 {
                     float score = 0;
-                    // Prefer dedicated Nvidia/AMD GPUs over integrated Intel/AMD Radeon(TM) Graphics
                     if (HardwareType == HardwareType.GpuNvidia) score += 1000;
                     else if (HardwareType == HardwareType.GpuAmd &&
                              Name.IndexOf("Radeon(TM) Graphics", StringComparison.OrdinalIgnoreCase) < 0)

@@ -1,6 +1,7 @@
 # Build folders
 bin/
 obj/
+publish/
 
 # Visual Studio files
 .vs/
@@ -11,3 +12,4 @@ obj/
 
 # Local configuration files
 tool_paths.txt
+*.app/

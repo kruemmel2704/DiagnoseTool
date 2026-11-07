@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Windows;
-using System.Windows.Threading;
+using System.Linq;
+using Avalonia.Threading;
 using Microsoft.Win32;
 
 namespace DiagnoseTool
@@ -19,6 +19,10 @@ namespace DiagnoseTool
         private int _selectedTab = 0; // 0 = Dashboard, 1 = Tools, 2 = Repair, 3 = Info, 4 = BatteryTest
         private string _statusMessage = "Ready";
         private bool _isStatusError = false;
+        private bool _isAdmin = false;
+        private bool _hasDriverError = false;
+        private bool _isLhmDriverBlocked = false;
+        private bool _isHWiNFOFallbackActive = false;
         
         // Recording states
         private bool _isRecording = false;
@@ -28,6 +32,7 @@ namespace DiagnoseTool
 
         // Battery health & stress test states
         private BatteryInfo _batteryInfo;
+        private SystemInfo _systemInfo;
         private bool _isBatteryTestRunning = false;
         private TimeSpan _batteryTestRemainingTime;
         private string _batteryTestRemainingDisplay = "30:00";
@@ -36,6 +41,17 @@ namespace DiagnoseTool
         private bool _batteryTestCompleted = false;
         private string _batteryTestResults;
         private ObservableCollection<string> _batteryTestLog = new ObservableCollection<string>();
+
+        // CPU Stress Test states
+        private bool _isCpuStressRunning = false;
+        private TimeSpan _cpuStressRemainingTime;
+        private string _cpuStressRemainingDisplay = "00:00";
+        private int _cpuStressSelectedThreads = Environment.ProcessorCount;
+        private int _cpuStressSelectedDurationIndex = 1; // Default to 1 min (0: 30s, 1: 1m, 2: 5m, 3: 10m, 4: Infinite)
+        private bool _cpuStressCompleted = false;
+        private string _cpuStressResults = "";
+        private ObservableCollection<string> _cpuStressLog = new ObservableCollection<string>();
+        private System.Threading.CancellationTokenSource _cpuStressCts;
 
         public MainViewModel()
         {
@@ -54,12 +70,26 @@ namespace DiagnoseTool
             StartBatteryTestCommand = new RelayCommand(ExecuteStartBatteryTest, () => !IsBatteryTestRunning);
             StopBatteryTestCommand = new RelayCommand(ExecuteStopBatteryTest, () => IsBatteryTestRunning);
             SaveBatteryReportCommand = new RelayCommand(ExecuteSaveBatteryReport, () => BatteryTestCompleted);
+            StartHWiNFOCommand = new RelayCommand(ExecuteStartHWiNFO);
+            StartCpuStressCommand = new RelayCommand(ExecuteStartCpuStress, () => !IsCpuStressRunning);
+            StopCpuStressCommand = new RelayCommand(ExecuteStopCpuStress, () => IsCpuStressRunning);
+
+            // Detect admin privileges
+            IsAdmin = IsRunningAsAdmin();
 
             // Fetch initial data
             UpdateDiagnostics();
             _tools = _launcherService.Tools;
             _currentTime = DateTime.Now.ToString("HH:mm:ss dddd, dd.MM.yyyy");
             _batteryInfo = BatteryService.GetBatteryInfo(_diagnostics?.BatteryData);
+            _systemInfo = SystemInfoService.GetSystemInfo();
+
+            // Automate HWiNFO startup if driver is blocked or GPU temperature is missing, HWiNFO is portable, and not already running
+            bool isGpuTempMissing = Diagnostics == null || !Diagnostics.GpuTemp.HasValue || Diagnostics.GpuTemp.Value == 0;
+            if ((IsLhmDriverBlocked || isGpuTempMissing) && IsHWiNFOPortableFound && !IsHWiNFORunning())
+            {
+                ExecuteStartHWiNFO();
+            }
 
             // Setup timer to refresh data every second
             _timer = new DispatcherTimer
@@ -100,6 +130,7 @@ namespace DiagnoseTool
                     OnPropertyChanged(nameof(IsRepairSelected));
                     OnPropertyChanged(nameof(IsInfoSelected));
                     OnPropertyChanged(nameof(IsBatteryTestSelected));
+                    OnPropertyChanged(nameof(IsCpuStressSelected));
                 }
             }
         }
@@ -109,6 +140,54 @@ namespace DiagnoseTool
         public bool IsRepairSelected => SelectedTab == 2;
         public bool IsInfoSelected => SelectedTab == 3;
         public bool IsBatteryTestSelected => SelectedTab == 4;
+        public bool IsCpuStressSelected => SelectedTab == 5;
+
+        public bool IsCpuStressRunning
+        {
+            get => _isCpuStressRunning;
+            set
+            {
+                if (SetProperty(ref _isCpuStressRunning, value))
+                {
+                    StartCpuStressCommand.RaiseCanExecuteChanged();
+                    StopCpuStressCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
+
+        public string CpuStressRemainingDisplay
+        {
+            get => _cpuStressRemainingDisplay;
+            set => SetProperty(ref _cpuStressRemainingDisplay, value);
+        }
+
+        public int CpuStressSelectedThreads
+        {
+            get => _cpuStressSelectedThreads;
+            set => SetProperty(ref _cpuStressSelectedThreads, value);
+        }
+
+        public int CpuStressSelectedDurationIndex
+        {
+            get => _cpuStressSelectedDurationIndex;
+            set => SetProperty(ref _cpuStressSelectedDurationIndex, value);
+        }
+
+        public bool CpuStressCompleted
+        {
+            get => _cpuStressCompleted;
+            set => SetProperty(ref _cpuStressCompleted, value);
+        }
+
+        public string CpuStressResults
+        {
+            get => _cpuStressResults;
+            set => SetProperty(ref _cpuStressResults, value);
+        }
+
+        public ObservableCollection<string> CpuStressLog => _cpuStressLog;
+
+        public int MaxThreads => Environment.ProcessorCount;
 
         public string StatusMessage
         {
@@ -121,6 +200,42 @@ namespace DiagnoseTool
             get => _isStatusError;
             set => SetProperty(ref _isStatusError, value);
         }
+
+        public bool IsAdmin
+        {
+            get => _isAdmin;
+            set
+            {
+                if (SetProperty(ref _isAdmin, value))
+                {
+                    OnPropertyChanged(nameof(AdminStatusText));
+                }
+            }
+        }
+
+        public bool HasDriverError
+        {
+            get => _hasDriverError;
+            set => SetProperty(ref _hasDriverError, value);
+        }
+
+        public bool IsLhmDriverBlocked
+        {
+            get => _isLhmDriverBlocked;
+            set => SetProperty(ref _isLhmDriverBlocked, value);
+        }
+
+        public bool IsHWiNFOFallbackActive
+        {
+            get => _isHWiNFOFallbackActive;
+            set => SetProperty(ref _isHWiNFOFallbackActive, value);
+        }
+
+        public bool IsHWiNFOPortableFound => !string.IsNullOrEmpty(GetHWiNFOPath());
+
+        public RelayCommand StartHWiNFOCommand { get; }
+
+        public string AdminStatusText => IsAdmin ? "v1.3.0 | Admin Privileges Active" : "v1.3.0 | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
@@ -149,6 +264,12 @@ namespace DiagnoseTool
         {
             get => _batteryInfo;
             set => SetProperty(ref _batteryInfo, value);
+        }
+
+        public SystemInfo SystemInfo
+        {
+            get => _systemInfo;
+            set => SetProperty(ref _systemInfo, value);
         }
 
         public bool IsBatteryTestRunning
@@ -213,6 +334,8 @@ namespace DiagnoseTool
         public RelayCommand StartBatteryTestCommand { get; }
         public RelayCommand StopBatteryTestCommand { get; }
         public RelayCommand SaveBatteryReportCommand { get; }
+        public RelayCommand StartCpuStressCommand { get; }
+        public RelayCommand StopCpuStressCommand { get; }
 
         private void TimerTick(object sender, EventArgs e)
         {
@@ -270,11 +393,53 @@ namespace DiagnoseTool
                     FinishBatteryTest(completed: true);
                 }
             }
+
+            if (IsCpuStressRunning)
+            {
+                if (CpuStressSelectedDurationIndex != 4) // Not Infinite
+                {
+                    _cpuStressRemainingTime = _cpuStressRemainingTime.Subtract(TimeSpan.FromSeconds(1));
+                    CpuStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _cpuStressRemainingTime.Minutes + _cpuStressRemainingTime.Hours * 60, _cpuStressRemainingTime.Seconds);
+                    
+                    if (_cpuStressRemainingTime.TotalSeconds <= 0)
+                    {
+                        FinishCpuStress(completed: true);
+                    }
+                }
+                else
+                {
+                    // Count up for infinite mode
+                    _cpuStressRemainingTime = _cpuStressRemainingTime.Add(TimeSpan.FromSeconds(1));
+                    CpuStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _cpuStressRemainingTime.Minutes + _cpuStressRemainingTime.Hours * 60, _cpuStressRemainingTime.Seconds);
+                }
+
+                // Periodically log diagnostics (every 5 seconds)
+                if (DateTime.Now.Second % 5 == 0)
+                {
+                    string tempStr = Diagnostics != null && Diagnostics.CpuAverageTemp.HasValue ? $"{Diagnostics.CpuAverageTemp.Value:F1} °C" : "-- °C";
+                    string loadStr = Diagnostics != null && Diagnostics.CpuAverageLoad.HasValue ? $"{Diagnostics.CpuAverageLoad.Value:F1} %" : "-- %";
+                    CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - CPU-Temp: {1} | CPU-Auslastung: {2}", 
+                        DateTime.Now, tempStr, loadStr));
+                }
+            }
         }
 
         private void UpdateDiagnostics()
         {
-            Diagnostics = _monitorService.GetDiagnostics();
+            Diagnostics = _monitorService.GetDiagnostics(IsCpuStressRunning, CpuStressSelectedThreads);
+
+            if (Diagnostics != null)
+            {
+                IsLhmDriverBlocked = Diagnostics.IsLhmDriverBlocked;
+                IsHWiNFOFallbackActive = Diagnostics.IsHWiNFOFallbackActive;
+                HasDriverError = IsLhmDriverBlocked && !IsHWiNFOFallbackActive;
+            }
+            else
+            {
+                IsLhmDriverBlocked = false;
+                IsHWiNFOFallbackActive = false;
+                HasDriverError = false;
+            }
         }
 
         private void ExecuteLaunch(string key)
@@ -289,21 +454,35 @@ namespace DiagnoseTool
             }
         }
 
-        private void ExecuteBrowse(string key)
+        private async void ExecuteBrowse(string key)
         {
-            var openFileDialog = new OpenFileDialog
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             {
-                Filter = "Executables (*.exe)|*.exe|All Files (*.*)|*.*",
-                Title = $"Select path for {key}"
-            };
+                var window = desktop.MainWindow;
+                if (window != null)
+                {
+                    var options = new Avalonia.Platform.Storage.FilePickerOpenOptions
+                    {
+                        Title = $"Select path for {key}",
+                        AllowMultiple = false,
+                        FileTypeFilter = new[]
+                        {
+                            new Avalonia.Platform.Storage.FilePickerFileType("Executables") { Patterns = new[] { "*.exe" } },
+                            new Avalonia.Platform.Storage.FilePickerFileType("All Files") { Patterns = new[] { "*" } }
+                        }
+                    };
 
-            if (openFileDialog.ShowDialog() == true)
-            {
-                _launcherService.SaveManualPath(key, openFileDialog.FileName);
-                // Refresh our tools collection binding
-                Tools = null;
-                Tools = _launcherService.Tools;
-                ShowStatus($"Path updated for {key}!", false);
+                    var result = await window.StorageProvider.OpenFilePickerAsync(options);
+                    if (result != null && result.Count > 0)
+                    {
+                        var filePath = result[0].Path.LocalPath;
+                        _launcherService.SaveManualPath(key, filePath);
+                        // Refresh our tools collection binding
+                        Tools = null;
+                        Tools = _launcherService.Tools;
+                        ShowStatus($"Path updated for {key}!", false);
+                    }
+                }
             }
         }
 
@@ -408,7 +587,7 @@ namespace DiagnoseTool
             ShowStatus("Werte-Aufzeichnung gestartet.", false);
         }
 
-        private void ExecuteStopRecording()
+        private async void ExecuteStopRecording()
         {
             if (!IsRecording) return;
             IsRecording = false;
@@ -419,41 +598,55 @@ namespace DiagnoseTool
                 return;
             }
 
-            var saveFileDialog = new SaveFileDialog
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             {
-                Filter = "PDF-Dateien (*.pdf)|*.pdf",
-                Title = "Prüfbericht speichern",
-                FileName = $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                try
+                var window = desktop.MainWindow;
+                if (window != null)
                 {
-                    string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
-                    string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
-                    string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
+                    var options = new Avalonia.Platform.Storage.FilePickerSaveOptions
+                    {
+                        Title = "Prüfbericht speichern",
+                        SuggestedFileName = $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf",
+                        DefaultExtension = "pdf",
+                        FileTypeChoices = new[]
+                        {
+                            new Avalonia.Platform.Storage.FilePickerFileType("PDF-Dateien") { Patterns = new[] { "*.pdf" } }
+                        }
+                    };
 
-                    PdfReportService.GenerateReport(
-                        saveFileDialog.FileName,
-                        cpu,
-                        gpu,
-                        ram,
-                        _recordingStartTime,
-                        DateTime.Now,
-                        _recordedData
-                    );
+                    var result = await window.StorageProvider.SaveFilePickerAsync(options);
+                    if (result != null)
+                    {
+                        try
+                        {
+                            var filePath = result.Path.LocalPath;
+                            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
+                            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
+                            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
 
-                    ShowStatus("PDF-Prüfbericht erfolgreich gespeichert!", false);
+                            PdfReportService.GenerateReport(
+                                filePath,
+                                cpu,
+                                gpu,
+                                ram,
+                                SystemInfo,
+                                _recordingStartTime,
+                                DateTime.Now,
+                                _recordedData
+                            );
+
+                            ShowStatus("PDF-Prüfbericht erfolgreich gespeichert!", false);
+                        }
+                        catch (Exception ex)
+                        {
+                            ShowStatus($"Fehler beim Erstellen des Berichts: {ex.Message}", true);
+                        }
+                    }
+                    else
+                    {
+                        ShowStatus("Aufzeichnung beendet (nicht gespeichert).", false);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    ShowStatus($"Fehler beim Erstellen des Berichts: {ex.Message}", true);
-                }
-            }
-            else
-            {
-                ShowStatus("Aufzeichnung beendet (nicht gespeichert).", false);
             }
         }
 
@@ -483,14 +676,41 @@ namespace DiagnoseTool
 
             try
             {
-                // Launch the YouTube URL in default browser
-                System.Diagnostics.Process.Start("https://www.youtube.com/watch?v=yq6c8h0Z3-Q");
+                // Launch the YouTube URL in default browser using safe helper
+                OpenUrl("https://www.youtube.com/watch?v=yq6c8h0Z3-Q");
                 ShowStatus("YouTube-Stresstest gestartet. Video wird im Browser abgespielt.", false);
             }
             catch (Exception ex)
             {
                 BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Fehler beim Starten des Browsers: {1}", DateTime.Now, ex.Message));
                 ShowStatus(string.Format("Fehler beim Starten des Browsers: {0}", ex.Message), true);
+            }
+        }
+
+        private void OpenUrl(string url)
+        {
+            try
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = url,
+                    UseShellExecute = true
+                });
+            }
+            catch
+            {
+                try
+                {
+                    System.Diagnostics.Process.Start("cmd.exe", $"/c start {url.Replace("&", "^&")}");
+                }
+                catch
+                {
+                    try
+                    {
+                        System.Diagnostics.Process.Start("powershell.exe", $"-Command \"Start-Process '{url}'\"");
+                    }
+                    catch { }
+                }
             }
         }
 
@@ -543,51 +763,335 @@ namespace DiagnoseTool
             }
         }
 
-        private void ExecuteSaveBatteryReport()
+        private async void ExecuteSaveBatteryReport()
         {
-            var saveFileDialog = new SaveFileDialog
+            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
             {
-                Filter = "PDF-Dateien (*.pdf)|*.pdf",
-                Title = "Batterie-Prüfbericht speichern",
-                FileName = string.Format("Batteriebericht_{0:yyyyMMdd_HHmmss}.pdf", DateTime.Now)
-            };
-
-            if (saveFileDialog.ShowDialog() == true)
-            {
-                try
+                var window = desktop.MainWindow;
+                if (window != null)
                 {
-                    string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
-                    string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
-                    string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
-                    
-                    TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
-                    DateTime start = DateTime.Now.Subtract(elapsed);
+                    var options = new Avalonia.Platform.Storage.FilePickerSaveOptions
+                    {
+                        Title = "Batterie-Prüfbericht speichern",
+                        SuggestedFileName = $"Batteriebericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf",
+                        DefaultExtension = "pdf",
+                        FileTypeChoices = new[]
+                        {
+                            new Avalonia.Platform.Storage.FilePickerFileType("PDF-Dateien") { Patterns = new[] { "*.pdf" } }
+                        }
+                    };
 
-                    PdfReportService.GenerateBatteryReport(
-                        saveFileDialog.FileName,
-                        cpu,
-                        gpu,
-                        ram,
-                        BatteryInfo,
-                        start,
-                        DateTime.Now,
-                        BatteryTestStartPercent,
-                        BatteryTestCurrentPercent,
-                        new List<string>(BatteryTestLog)
-                    );
+                    var result = await window.StorageProvider.SaveFilePickerAsync(options);
+                    if (result != null)
+                    {
+                        try
+                        {
+                            var filePath = result.Path.LocalPath;
+                            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
+                            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
+                            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
+                            
+                            TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
+                            DateTime start = DateTime.Now.Subtract(elapsed);
 
-                    ShowStatus("PDF-Batteriebericht erfolgreich gespeichert!", false);
-                }
-                catch (Exception ex)
-                {
-                    ShowStatus(string.Format("Fehler beim Erstellen des PDF-Berichts: {0}", ex.Message), true);
+                            PdfReportService.GenerateBatteryReport(
+                                filePath,
+                                cpu,
+                                gpu,
+                                ram,
+                                SystemInfo,
+                                BatteryInfo,
+                                start,
+                                DateTime.Now,
+                                BatteryTestStartPercent,
+                                BatteryTestCurrentPercent,
+                                new List<string>(BatteryTestLog)
+                            );
+
+                            ShowStatus("PDF-Batteriebericht erfolgreich gespeichert!", false);
+                        }
+                        catch (Exception ex)
+                        {
+                            ShowStatus(string.Format("Fehler beim Erstellen des PDF-Berichts: {0}", ex.Message), true);
+                        }
+                    }
                 }
             }
+        }
+
+        private static bool IsRunningAsAdmin()
+        {
+            try
+            {
+                using (var identity = System.Security.Principal.WindowsIdentity.GetCurrent())
+                {
+                    var principal = new System.Security.Principal.WindowsPrincipal(identity);
+                    return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+                }
+            }
+            catch
+            {
+                return false;
+            }
+        }        private string GetHWiNFOPath()
+        {
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string[] paths = new[]
+            {
+                System.IO.Path.Combine(baseDir, "HWiNFO64.exe"),
+                System.IO.Path.Combine(baseDir, "Tools", "HWiNFO", "HWiNFO64.exe"),
+                System.IO.Path.Combine(baseDir, "Tools", "HWiNFO64.exe")
+            };
+
+            foreach (var p in paths)
+            {
+                if (System.IO.File.Exists(p)) return p;
+            }
+
+            return null;
+        }
+
+        private bool IsHWiNFORunning()
+        {
+            try
+            {
+                return System.Diagnostics.Process.GetProcesses()
+                    .Any(p => p.ProcessName.IndexOf("HWiNFO", StringComparison.OrdinalIgnoreCase) >= 0);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void AutoConfigureHWiNFOSensors()
+        {
+            try
+            {
+                // 1. Enable Gadget reporting globally
+                using (var hkey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\HWiNFO64\Settings"))
+                {
+                    if (hkey != null)
+                    {
+                        hkey.SetValue("EnableReporting", 1, RegistryValueKind.DWord);
+                        hkey.SetValue("SensorsOnly", 1, RegistryValueKind.DWord);
+                        hkey.SetValue("MinimizeSensors", 1, RegistryValueKind.DWord);
+                        hkey.SetValue("ShowWelcomeScreen", 0, RegistryValueKind.DWord);
+                    }
+                }
+
+                // 2. Enable VSB (Virtual Sensor Board) reporting globally under Sensors
+                using (var sensorsKey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\HWiNFO64\Sensors"))
+                {
+                    if (sensorsKey != null)
+                    {
+                        sensorsKey.SetValue("EnableVSB", 1, RegistryValueKind.DWord);
+
+                        // 3. Scan all hardware device subkeys and enable InVSB/Sidebar for all their sensors
+                        var hwKeyNames = sensorsKey.GetSubKeyNames();
+                        foreach (var hwName in hwKeyNames)
+                        {
+                            if (hwName.Equals("Settings", StringComparison.OrdinalIgnoreCase) ||
+                                hwName.Equals("Custom", StringComparison.OrdinalIgnoreCase) ||
+                                hwName.Equals("OSD", StringComparison.OrdinalIgnoreCase))
+                            {
+                                continue;
+                            }
+
+                            using (var hwKey = sensorsKey.OpenSubKey(hwName, true))
+                            {
+                                if (hwKey == null) continue;
+
+                                var metricKeyNames = hwKey.GetSubKeyNames();
+                                foreach (var metricName in metricKeyNames)
+                                {
+                                    using (var metricKey = hwKey.OpenSubKey(metricName, true))
+                                    {
+                                        if (metricKey == null) continue;
+                                        metricKey.SetValue("InVSB", 1, RegistryValueKind.DWord);
+                                        metricKey.SetValue("Sidebar", 1, RegistryValueKind.DWord);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 4. Backwards compatibility for legacy Settings subkey
+                using (var legacySettingsKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\HWiNFO64\Sensors\Settings", true))
+                {
+                    if (legacySettingsKey != null)
+                    {
+                        var subKeyNames = legacySettingsKey.GetSubKeyNames();
+                        foreach (var subName in subKeyNames)
+                        {
+                            using (var subKey = legacySettingsKey.OpenSubKey(subName, true))
+                            {
+                                if (subKey == null) continue;
+                                subKey.SetValue("InVSB", 1, RegistryValueKind.DWord);
+                                subKey.SetValue("Sidebar", 1, RegistryValueKind.DWord);
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to auto-configure HWiNFO sensors: {ex.Message}");
+            }
+        }
+
+        private void ExecuteStartHWiNFO()
+        {
+            string hwinfoPath = GetHWiNFOPath();
+            if (string.IsNullOrEmpty(hwinfoPath))
+            {
+                ShowStatus("HWiNFO64.exe nicht im Tools-Ordner gefunden.", true);
+                return;
+            }
+
+            try
+            {
+                // Automate HWiNFO configuration dynamically
+                AutoConfigureHWiNFOSensors();
+
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = hwinfoPath,
+                    Arguments = "", // No command line flags to avoid free version warnings; registry configurations handle layout
+                    WorkingDirectory = System.IO.Path.GetDirectoryName(hwinfoPath),
+                    UseShellExecute = true
+                };
+                System.Diagnostics.Process.Start(startInfo);
+                ShowStatus("HWiNFO64 im Hintergrund gestartet und konfiguriert.", false);
+            }
+            catch (Exception ex)
+            {
+                ShowStatus($"Fehler beim Starten von HWiNFO: {ex.Message}", true);
+            }
+        }
+
+        private void ExecuteStartCpuStress()
+        {
+            if (IsCpuStressRunning) return;
+
+            IsCpuStressRunning = true;
+            CpuStressCompleted = false;
+            CpuStressResults = "";
+            CpuStressLog.Clear();
+
+            // Resolve duration
+            double durationSeconds = 0;
+            string durationText = "";
+            switch (CpuStressSelectedDurationIndex)
+            {
+                case 0:
+                    durationSeconds = 30;
+                    durationText = "30 Sekunden";
+                    break;
+                case 1:
+                    durationSeconds = 60;
+                    durationText = "1 Minute";
+                    break;
+                case 2:
+                    durationSeconds = 300;
+                    durationText = "5 Minuten";
+                    break;
+                case 3:
+                    durationSeconds = 600;
+                    durationText = "10 Minuten";
+                    break;
+                case 4:
+                    durationSeconds = double.MaxValue;
+                    durationText = "Unbegrenzt";
+                    break;
+            }
+
+            if (durationSeconds == double.MaxValue)
+            {
+                _cpuStressRemainingTime = TimeSpan.Zero;
+                CpuStressRemainingDisplay = "Unbegrenzt";
+            }
+            else
+            {
+                _cpuStressRemainingTime = TimeSpan.FromSeconds(durationSeconds);
+                CpuStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _cpuStressRemainingTime.Minutes + _cpuStressRemainingTime.Hours * 60, _cpuStressRemainingTime.Seconds);
+            }
+
+            CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest gestartet ({1} Threads, Dauer: {2})", 
+                DateTime.Now, CpuStressSelectedThreads, durationText));
+
+            // Start dedicated background threads (avoiding ThreadPool starvation to keep UI responsive)
+            _cpuStressCts = new System.Threading.CancellationTokenSource();
+            var token = _cpuStressCts.Token;
+
+            for (int i = 0; i < CpuStressSelectedThreads; i++)
+            {
+                int threadNum = i + 1;
+                var worker = new StressWorker();
+                var thread = new System.Threading.Thread(() => worker.Run(token))
+                {
+                    IsBackground = true,
+                    Name = $"DiagnoseTool Stress Core {threadNum}",
+                    Priority = System.Threading.ThreadPriority.BelowNormal // Give UI thread priority to prevent freezes
+                };
+                thread.Start();
+            }
+
+            // Raise commands changed
+            StartCpuStressCommand.RaiseCanExecuteChanged();
+            StopCpuStressCommand.RaiseCanExecuteChanged();
+        }
+
+        private void ExecuteStopCpuStress()
+        {
+            if (!IsCpuStressRunning) return;
+            CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest manuell abgebrochen.", DateTime.Now));
+            FinishCpuStress(completed: false);
+        }
+
+        private void FinishCpuStress(bool completed)
+        {
+            if (!IsCpuStressRunning) return;
+
+            // Stop all threads
+            try
+            {
+                _cpuStressCts?.Cancel();
+                _cpuStressCts?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to cancel CPU stress threads: {ex.Message}");
+            }
+            _cpuStressCts = null;
+
+            IsCpuStressRunning = false;
+            CpuStressCompleted = true;
+
+            if (completed)
+            {
+                CpuStressResults = $"Test abgeschlossen! {CpuStressSelectedThreads} Threads liefen erfolgreich.";
+                CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest erfolgreich beendet.", DateTime.Now));
+            }
+            else
+            {
+                CpuStressResults = "Test abgebrochen.";
+            }
+
+            StartCpuStressCommand.RaiseCanExecuteChanged();
+            StopCpuStressCommand.RaiseCanExecuteChanged();
         }
 
         public void Dispose()
         {
             _timer?.Stop();
+            try
+            {
+                _cpuStressCts?.Cancel();
+                _cpuStressCts?.Dispose();
+            }
+            catch {}
             _monitorService?.Dispose();
         }
     }
@@ -595,10 +1099,44 @@ namespace DiagnoseTool
     public class LogDataPoint
     {
         public DateTime Timestamp { get; set; }
-        public float CpuCpuLoad { get; set; }
-        public float CpuCpuTemp { get; set; }
-        public float GpuGpuLoad { get; set; }
-        public float GpuGpuTemp { get; set; }
-        public float RamPercent { get; set; }
+        public float? CpuCpuLoad { get; set; }
+        public float? CpuCpuTemp { get; set; }
+        public float? GpuGpuLoad { get; set; }
+        public float? GpuGpuTemp { get; set; }
+        public float? RamPercent { get; set; }
+    }
+
+    public class StressWorker
+    {
+        public volatile float Result;
+
+        public void Run(System.Threading.CancellationToken token)
+        {
+            double val = 12345.67;
+            int counter = 0;
+            while (!token.IsCancellationRequested)
+            {
+                // Tight loop of calculations to fully saturate CPU execution pipelines
+                for (int j = 0; j < 1000; j++)
+                {
+                    val = Math.Sqrt(val * 1.0000001 + j);
+                    val = Math.Sin(val) * Math.Cos(val);
+                }
+                if (val > 1000000.0 || double.IsNaN(val) || double.IsInfinity(val))
+                {
+                    val = 12345.67;
+                }
+                Result = (float)val; // Force memory write of volatile field to prevent compiler optimization
+
+                // Yield execution briefly every 200 outer iterations (approx. every 10-15ms)
+                // This prevents macOS from throttling/penalizing the app process due to App Nap / high thermal load,
+                // keeping the UI perfectly responsive while still keeping CPU utilization extremely high.
+                counter++;
+                if (counter % 200 == 0)
+                {
+                    System.Threading.Thread.Sleep(1);
+                }
+            }
+        }
     }
 }

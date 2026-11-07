@@ -1,6 +1,7 @@
 using System;
-using System.Management;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Management;
 
 namespace DiagnoseTool
 {
@@ -10,8 +11,8 @@ namespace DiagnoseTool
         public string Manufacturer { get; set; } = "Unknown";
         public string DeviceName { get; set; } = "Unknown";
         public string Chemistry { get; set; } = "Unknown";
-        public uint DesignCapacity { get; set; } // in mWh
-        public uint FullChargeCapacity { get; set; } // in mWh
+        public uint DesignCapacity { get; set; } // in mWh (or mAh)
+        public uint FullChargeCapacity { get; set; } // in mWh (or mAh)
         public double HealthPercent { get; set; } = 100.0;
 
         // Real-time properties
@@ -71,27 +72,49 @@ namespace DiagnoseTool
 
         public static BatteryInfo GetBatteryInfo(LhmBatteryData lhmBattery = null)
         {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return GetWindowsBatteryInfo(lhmBattery);
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                return GetMacBatteryInfo();
+            }
+            else
+            {
+                return new BatteryInfo { IsPresent = false };
+            }
+        }
+
+        private static BatteryInfo GetWindowsBatteryInfo(LhmBatteryData lhmBattery = null)
+        {
             var info = new BatteryInfo();
 
             // 1. Get real-time status using P/Invoke GetSystemPowerStatus
-            if (GetSystemPowerStatus(out SystemPowerStatus status))
+            try
             {
-                // BatteryLifePercent is 255 if unknown, otherwise 0-100
-                if (status.BatteryLifePercent != 255)
+                if (GetSystemPowerStatus(out SystemPowerStatus status))
                 {
-                    info.CurrentChargePercent = status.BatteryLifePercent;
-                    info.IsPresent = (status.BatteryFlag & 128) == 0; // if BatteryFlag has 128 bit, battery is not present
+                    if (status.BatteryLifePercent != 255)
+                    {
+                        info.CurrentChargePercent = status.BatteryLifePercent;
+                        info.IsPresent = (status.BatteryFlag & 128) == 0;
+                    }
+                    else
+                    {
+                        info.IsPresent = false;
+                    }
+
+                    info.IsConnectedToAc = status.ACLineStatus == 1;
+                    info.IsCharging = (status.BatteryFlag & 8) != 0;
+                    info.RemainingTimeSeconds = status.BatteryLifeTime;
                 }
                 else
                 {
                     info.IsPresent = false;
                 }
-
-                info.IsConnectedToAc = status.ACLineStatus == 1;
-                info.IsCharging = (status.BatteryFlag & 8) != 0;
-                info.RemainingTimeSeconds = status.BatteryLifeTime;
             }
-            else
+            catch
             {
                 info.IsPresent = false;
             }
@@ -191,13 +214,12 @@ namespace DiagnoseTool
                 }
                 else if (info.DesignCapacity == 0)
                 {
-                    // Fallback to CIMV2 Win32_Battery
                     QueryFallbackCimv2(info);
                 }
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"WMI Battery Query failed: {ex.Message}");
+                Debug.WriteLine($"WMI Battery Query failed: {ex.Message}");
                 if (info.DesignCapacity == 0)
                 {
                     QueryFallbackCimv2(info);
@@ -245,8 +267,126 @@ namespace DiagnoseTool
             }
             catch (Exception ex)
             {
-                System.Diagnostics.Debug.WriteLine($"CIMV2 Fallback Battery Query failed: {ex.Message}");
+                Debug.WriteLine($"CIMV2 Fallback Battery Query failed: {ex.Message}");
             }
+        }
+
+        private static BatteryInfo GetMacBatteryInfo()
+        {
+            var info = new BatteryInfo { IsPresent = false };
+            try
+            {
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = "/usr/sbin/ioreg",
+                        Arguments = "-rn AppleSmartBattery",
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
+                        CreateNoWindow = true
+                    }
+                };
+                process.Start();
+                string output = process.StandardOutput.ReadToEnd();
+                process.WaitForExit();
+
+                if (string.IsNullOrWhiteSpace(output) || !output.Contains("AppleSmartBattery"))
+                {
+                    return info;
+                }
+
+                info.IsPresent = true;
+                info.Manufacturer = "Apple";
+                info.DeviceName = "Internal Battery";
+                info.Chemistry = "Lithium";
+
+                foreach (var line in output.Split('\n'))
+                {
+                    var trimmed = line.Trim();
+                    if (string.IsNullOrEmpty(trimmed)) continue;
+
+                    if (trimmed.Contains("\"DesignCapacity\""))
+                    {
+                        info.DesignCapacity = ParseUintValue(trimmed);
+                    }
+                    else if (trimmed.Contains("\"MaxCapacity\""))
+                    {
+                        info.FullChargeCapacity = ParseUintValue(trimmed);
+                    }
+                    else if (trimmed.Contains("\"StateOfCharge\""))
+                    {
+                        info.CurrentChargePercent = ParseUintValue(trimmed);
+                    }
+                    else if (trimmed.Contains("\"ExternalConnected\""))
+                    {
+                        info.IsConnectedToAc = trimmed.Contains("Yes") || trimmed.Contains("true") || trimmed.Contains("1");
+                    }
+                    else if (trimmed.Contains("\"IsCharging\""))
+                    {
+                        info.IsCharging = trimmed.Contains("Yes") || trimmed.Contains("true") || trimmed.Contains("1");
+                    }
+                    else if (trimmed.Contains("\"TimeRemaining\""))
+                    {
+                        var mins = ParseUintValue(trimmed);
+                        if (mins > 0 && mins < 10000)
+                        {
+                            info.RemainingTimeSeconds = (int)mins * 60;
+                        }
+                        else
+                        {
+                            info.RemainingTimeSeconds = -1;
+                        }
+                    }
+                    else if (trimmed.Contains("\"DeviceName\""))
+                    {
+                        info.DeviceName = ParseStringValue(trimmed) ?? info.DeviceName;
+                    }
+                    else if (trimmed.Contains("\"Manufacturer\""))
+                    {
+                        info.Manufacturer = ParseStringValue(trimmed) ?? info.Manufacturer;
+                    }
+                    else if (trimmed.Contains("\"BatteryCellChemistry\""))
+                    {
+                        info.Chemistry = ParseStringValue(trimmed) ?? info.Chemistry;
+                    }
+                }
+
+                if (info.DesignCapacity > 0)
+                {
+                    info.HealthPercent = ((double)info.FullChargeCapacity / info.DesignCapacity) * 100.0;
+                    if (info.HealthPercent > 100.0) info.HealthPercent = 100.0;
+                }
+            }
+            catch
+            {
+                info.IsPresent = false;
+            }
+            return info;
+        }
+
+        private static uint ParseUintValue(string line)
+        {
+            var parts = line.Split('=');
+            if (parts.Length > 1)
+            {
+                var valStr = parts[1].Trim().Trim('"', ',');
+                if (uint.TryParse(valStr, out uint val))
+                {
+                    return val;
+                }
+            }
+            return 0;
+        }
+
+        private static string ParseStringValue(string line)
+        {
+            var parts = line.Split('=');
+            if (parts.Length > 1)
+            {
+                return parts[1].Trim().Trim('"', ',');
+            }
+            return null;
         }
     }
 }
