@@ -26,7 +26,6 @@ namespace DiagnoseTool
         
         // Recording states
         private bool _isRecording = false;
-        private bool _isPromptingOrder = false;
         private DateTime _recordingStartTime;
         private readonly List<LogDataPoint> _recordedData = new List<LogDataPoint>();
         private string _recordingTimeDisplay = "00:00:00";
@@ -75,7 +74,13 @@ namespace DiagnoseTool
         private string _orderNumber = "";
         private LhmHttpServer _lhmHttpServer;
         private bool _isOnlineMonitoringActive = false;
-        private string _onlineMonitoringStatusText = "Inaktiv (Startet mit Aufzeichnung)";
+        private string _onlineMonitoringStatusText = "Initialisiere Server...";
+
+        // UDP Autodiscovery & Hardware-Check Connection
+        private UdpDiscoveryClient _udpDiscoveryClient;
+        private bool _isHardwareCheckConnected = false;
+        private string _hardwareCheckServerInfo = "";
+        private string _hardwareCheckStatusDisplay = "Suche Hardware-Check Server...";
 
         public MainViewModel()
         {
@@ -129,6 +134,10 @@ namespace DiagnoseTool
             };
             _timer.Tick += TimerTick;
             _timer.Start();
+
+            // Start API Server and UDP autodiscovery immediately on application start
+            StartOnlineMonitoring();
+            StartUdpDiscovery();
         }
 
         public HardwareDiagnostics Diagnostics
@@ -384,7 +393,7 @@ namespace DiagnoseTool
 
         public RelayCommand StartHWiNFOCommand { get; }
 
-        public string AdminStatusText => IsAdmin ? "v2.1 | Admin Privileges Active" : "v2.1 | No Admin Privileges (Restricted)";
+        public string AdminStatusText => IsAdmin ? "v2.2 | Admin Privileges Active" : "v2.2 | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
@@ -510,12 +519,32 @@ namespace DiagnoseTool
                     OnPropertyChanged(nameof(HasOrderNumber));
                     OnPropertyChanged(nameof(OrderNumberDisplay));
                     OnPropertyChanged(nameof(ShowOrderNumberInfo));
+                    _lhmHttpServer?.UpdateOrderNumber(_orderNumber);
                     if (IsOnlineMonitoringActive)
                     {
                         System.Threading.Tasks.Task.Run(() => LhmHttpServer.RegisterWithHardwareCheckAsync(_orderNumber));
                     }
+                    _udpDiscoveryClient?.TriggerImmediateBroadcastAsync();
                 }
             }
+        }
+
+        public bool IsHardwareCheckConnected
+        {
+            get => _isHardwareCheckConnected;
+            set => SetProperty(ref _isHardwareCheckConnected, value);
+        }
+
+        public string HardwareCheckServerInfo
+        {
+            get => _hardwareCheckServerInfo;
+            set => SetProperty(ref _hardwareCheckServerInfo, value);
+        }
+
+        public string HardwareCheckStatusDisplay
+        {
+            get => _hardwareCheckStatusDisplay;
+            set => SetProperty(ref _hardwareCheckStatusDisplay, value);
         }
 
         public bool IsOnlineMonitoringActive
@@ -798,33 +827,9 @@ namespace DiagnoseTool
             }
         }
 
-        private async void ExecuteStartRecording()
+        private void ExecuteStartRecording()
         {
-            if (IsRecording || _isPromptingOrder) return;
-
-            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != null)
-            {
-                _isPromptingOrder = true;
-                bool confirmed;
-                OrderNumberDialog dialog;
-                try
-                {
-                    dialog = new OrderNumberDialog(OrderNumber);
-                    confirmed = await dialog.ShowDialog<bool>(desktop.MainWindow);
-                }
-                finally
-                {
-                    _isPromptingOrder = false;
-                }
-
-                if (!confirmed)
-                {
-                    // User cancelled the prompt dialog
-                    return;
-                }
-
-                OrderNumber = dialog.EnteredOrderNumber?.Trim() ?? string.Empty;
-            }
+            if (IsRecording) return;
 
             _recordedData.Clear();
             _recordingStartTime = DateTime.Now;
@@ -845,72 +850,11 @@ namespace DiagnoseTool
             }
         }
 
-        private async void ExecuteStopRecording()
+        private void ExecuteStopRecording()
         {
             if (!IsRecording) return;
             IsRecording = false;
-
-            if (_recordedData.Count == 0)
-            {
-                ShowStatus("Keine Datenpunkte erfasst. Aufzeichnung verworfen.", true);
-                return;
-            }
-
-            if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
-            {
-                var window = desktop.MainWindow;
-                if (window != null)
-                {
-                    string defaultFileName = !string.IsNullOrWhiteSpace(OrderNumber)
-                        ? $"Pruefbericht_{OrderNumber.Trim()}_{DateTime.Now:yyyyMMdd_HHmmss}.pdf"
-                        : $"Pruefbericht_{DateTime.Now:yyyyMMdd_HHmmss}.pdf";
-
-                    var options = new Avalonia.Platform.Storage.FilePickerSaveOptions
-                    {
-                        Title = "Prüfbericht speichern",
-                        SuggestedFileName = defaultFileName,
-                        DefaultExtension = "pdf",
-                        FileTypeChoices = new[]
-                        {
-                            new Avalonia.Platform.Storage.FilePickerFileType("PDF-Dateien") { Patterns = new[] { "*.pdf" } }
-                        }
-                    };
-
-                    var result = await window.StorageProvider.SaveFilePickerAsync(options);
-                    if (result != null)
-                    {
-                        try
-                        {
-                            var filePath = result.Path.LocalPath;
-                            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
-                            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
-                            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
-
-                            PdfReportService.GenerateReport(
-                                filePath,
-                                cpu,
-                                gpu,
-                                ram,
-                                SystemInfo,
-                                _recordingStartTime,
-                                DateTime.Now,
-                                _recordedData,
-                                OrderNumber
-                            );
-
-                            ShowStatus("PDF-Prüfbericht erfolgreich gespeichert!", false);
-                        }
-                        catch (Exception ex)
-                        {
-                            ShowStatus($"Fehler beim Erstellen des Berichts: {ex.Message}", true);
-                        }
-                    }
-                    else
-                    {
-                        ShowStatus("Aufzeichnung beendet (nicht gespeichert).", false);
-                    }
-                }
-            }
+            ShowStatus("Werte-Aufzeichnung beendet.", false);
         }
 
         public void StartOnlineMonitoring()
@@ -918,6 +862,32 @@ namespace DiagnoseTool
             if (_lhmHttpServer == null)
             {
                 _lhmHttpServer = new LhmHttpServer(() => Diagnostics, () => SystemInfo, () => BatteryInfo);
+                _lhmHttpServer.StressStatusProvider = GetCurrentStressStatus;
+                _lhmHttpServer.OnStartCpuStress = (duration, threads) => RemoteStartCpuStress(duration, threads);
+                _lhmHttpServer.OnStopCpuStress = () => RemoteStopCpuStress();
+                _lhmHttpServer.OnStartRamStress = (duration, percent) => RemoteStartRamStress(duration, percent);
+                _lhmHttpServer.OnStopRamStress = () => RemoteStopRamStress();
+                _lhmHttpServer.OnLaunchFurMarkDirect = () => RemoteLaunchFurMarkDirect();
+                _lhmHttpServer.OnLaunchFurMarkGui = () => RemoteLaunchFurMarkGui();
+                _lhmHttpServer.OnStopFurMark = () => RemoteStopFurMark();
+                _lhmHttpServer.OnStopAllStress = () => RemoteStopAllStress();
+                _lhmHttpServer.OnStartRecording = (orderNo) => RemoteStartRecording(orderNo);
+                _lhmHttpServer.OnStopRecording = () => RemoteStopRecording();
+                _lhmHttpServer.OnSetOrderNumber = (orderNo) => RemoteSetOrderNumber(orderNo);
+                _lhmHttpServer.OnExitApplication = () =>
+                {
+                    Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                    {
+                        if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
+                        {
+                            desktop.Shutdown();
+                        }
+                        else
+                        {
+                            Environment.Exit(0);
+                        }
+                    });
+                };
             }
 
             bool started = _lhmHttpServer.Start(OrderNumber);
@@ -925,12 +895,218 @@ namespace DiagnoseTool
             if (started)
             {
                 string localIp = LhmHttpServer.GetPrimaryLocalIp();
-                OnlineMonitoringStatusText = $"Port 8085 aktiv (http://{localIp}:8085/data.json)";
+                OnlineMonitoringStatusText = IsHardwareCheckConnected
+                    ? $"Port 8085 aktiv • Verbunden mit Hardware-Check ({HardwareCheckServerInfo}:5085)"
+                    : $"Port 8085 aktiv (http://{localIp}:8085/data.json)";
             }
             else
             {
                 OnlineMonitoringStatusText = "Port 8085 konnte nicht gestartet werden";
             }
+        }
+
+        public void StartUdpDiscovery()
+        {
+            if (_udpDiscoveryClient == null)
+            {
+                _udpDiscoveryClient = new UdpDiscoveryClient(
+                    () => OrderNumber,
+                    () => SystemInfo?.FullSystemName ?? Environment.MachineName,
+                    state =>
+                    {
+                        Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                        {
+                            IsHardwareCheckConnected = state.IsConnected;
+                            HardwareCheckServerInfo = state.ServerHost;
+                            HardwareCheckStatusDisplay = state.StatusDisplay;
+                            if (state.IsConnected)
+                            {
+                                OnlineMonitoringStatusText = $"Port 8085 aktiv • Hardware-Check ({state.ServerHost}:{state.ServerPort})";
+                            }
+                            else
+                            {
+                                string localIp = LhmHttpServer.GetPrimaryLocalIp();
+                                OnlineMonitoringStatusText = $"Port 8085 aktiv (http://{localIp}:8085/data.json) • Suche Server...";
+                            }
+                        });
+                    });
+            }
+            _udpDiscoveryClient.Start();
+        }
+
+        public TelemetryStressStatus GetCurrentStressStatus()
+        {
+            return new TelemetryStressStatus
+            {
+                IsCpuStressRunning = IsCpuStressRunning,
+                CpuStressRemaining = CpuStressRemainingDisplay,
+                CpuStressThreads = CpuStressSelectedThreads,
+                IsRamStressRunning = IsRamStressRunning,
+                RamStressRemaining = RamStressRemainingDisplay,
+                RamStressAllocatedGb = RamStressAllocatedGb,
+                RamStressPassCount = RamStressPassCount,
+                RamStressErrorCount = RamStressErrorCount,
+                IsGpuStressRunning = _launcherService.IsFurMarkRunning(),
+                IsFurMarkFound = IsFurMarkFound,
+                IsRecordingRunning = IsRecording,
+                RecordingDuration = RecordingTimeDisplay,
+                RecordedSamplesCount = RecordedSamplesCount,
+                IsServerConnected = IsHardwareCheckConnected,
+                ServerHost = HardwareCheckServerInfo,
+                ServerPort = 5085
+            };
+        }
+
+        public void RemoteStartCpuStress(int? durationMinutes = null, int? threads = null)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (threads.HasValue && threads.Value > 0)
+                {
+                    CpuStressSelectedThreads = Math.Min(threads.Value, Environment.ProcessorCount * 2);
+                }
+
+                if (durationMinutes.HasValue)
+                {
+                    if (durationMinutes.Value == 1) CpuStressSelectedDurationIndex = 1;
+                    else if (durationMinutes.Value == 5) CpuStressSelectedDurationIndex = 2;
+                    else if (durationMinutes.Value == 10) CpuStressSelectedDurationIndex = 3;
+                    else if (durationMinutes.Value <= 0) CpuStressSelectedDurationIndex = 4;
+                }
+
+                if (!IsCpuStressRunning)
+                {
+                    ExecuteStartCpuStress();
+                    ShowStatus("CPU-Stresstest über Remote gestartet.", false);
+                }
+            });
+        }
+
+        public void RemoteStopCpuStress()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (IsCpuStressRunning)
+                {
+                    ExecuteStopCpuStress();
+                    ShowStatus("CPU-Stresstest über Remote gestoppt.", false);
+                }
+            });
+        }
+
+        public void RemoteStartRamStress(int? durationMinutes = null, int? targetPercent = null)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (targetPercent.HasValue && targetPercent.Value >= 30 && targetPercent.Value <= 95)
+                {
+                    RamStressTargetPercent = targetPercent.Value;
+                }
+
+                if (durationMinutes.HasValue)
+                {
+                    if (durationMinutes.Value == 1) RamStressSelectedDurationIndex = 1;
+                    else if (durationMinutes.Value == 5) RamStressSelectedDurationIndex = 2;
+                    else if (durationMinutes.Value == 10) RamStressSelectedDurationIndex = 3;
+                    else if (durationMinutes.Value <= 0) RamStressSelectedDurationIndex = 4;
+                }
+
+                if (!IsRamStressRunning)
+                {
+                    ExecuteStartRamStress();
+                    ShowStatus("RAM-Stresstest über Remote gestartet.", false);
+                }
+            });
+        }
+
+        public void RemoteStopRamStress()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (IsRamStressRunning)
+                {
+                    ExecuteStopRamStress();
+                    ShowStatus("RAM-Stresstest über Remote gestoppt.", false);
+                }
+            });
+        }
+
+        public void RemoteLaunchFurMarkDirect()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                ExecuteLaunchFurMarkDirect();
+                ShowStatus("FurMark 3D Donut über Remote gestartet.", false);
+            });
+        }
+
+        public void RemoteLaunchFurMarkGui()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                ExecuteLaunchFurMarkGui();
+                ShowStatus("FurMark GUI über Remote geöffnet.", false);
+            });
+        }
+
+        public void RemoteStopFurMark()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                _launcherService.StopFurMark(out _);
+                ShowStatus("FurMark über Remote beendet.", false);
+            });
+        }
+
+        public void RemoteStopAllStress()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (IsCpuStressRunning) ExecuteStopCpuStress();
+                if (IsRamStressRunning) ExecuteStopRamStress();
+                _launcherService.StopFurMark(out _);
+                ShowStatus("Alle Stresstests über Remote beendet.", false);
+            });
+        }
+
+        public void RemoteStartRecording(string orderNumber = null)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (IsRecording) return;
+                if (!string.IsNullOrWhiteSpace(orderNumber))
+                {
+                    OrderNumber = orderNumber.Trim();
+                }
+                _recordedData.Clear();
+                _recordingStartTime = DateTime.Now;
+                IsRecording = true;
+                RecordingTimeDisplay = "00:00:00";
+                OnPropertyChanged(nameof(RecordedSamplesCount));
+                ShowStatus($"Werte-Aufzeichnung über Remote gestartet (Auftrag: {OrderNumber}).", false);
+            });
+        }
+
+        public void RemoteStopRecording()
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (IsRecording)
+                {
+                    ExecuteStopRecording();
+                    ShowStatus("Werte-Aufzeichnung über Remote beendet.", false);
+                }
+            });
+        }
+
+        public void RemoteSetOrderNumber(string orderNumber)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                OrderNumber = orderNumber?.Trim() ?? "";
+                ShowStatus($"Auftragsnummer über Remote gesetzt: {OrderNumber}", false);
+                _udpDiscoveryClient?.TriggerImmediateBroadcastAsync();
+            });
         }
 
         public void StopOnlineMonitoring()
@@ -1696,6 +1872,12 @@ namespace DiagnoseTool
             {
                 _ramBlocks.Clear();
             }
+            try
+            {
+                _udpDiscoveryClient?.Stop();
+                _udpDiscoveryClient?.Dispose();
+            }
+            catch {}
             try
             {
                 _lhmHttpServer?.Stop();

@@ -220,6 +220,50 @@ namespace DiagnoseTool
             return LaunchToolInternal("FurMark", directDonut: false, out errorMessage);
         }
 
+        public bool StopFurMark(out string errorMessage)
+        {
+            errorMessage = null;
+            try
+            {
+                var names = new[] { "furmark", "FurMark_GUI", "FurMark" };
+                int killed = 0;
+                foreach (var name in names)
+                {
+                    foreach (var proc in Process.GetProcessesByName(name))
+                    {
+                        try
+                        {
+                            proc.Kill();
+                            proc.WaitForExit(1000);
+                            killed++;
+                        }
+                        catch { }
+                    }
+                }
+                return true;
+            }
+            catch (Exception ex)
+            {
+                errorMessage = ex.Message;
+                return false;
+            }
+        }
+
+        public bool IsFurMarkRunning()
+        {
+            try
+            {
+                var names = new[] { "furmark", "FurMark_GUI", "FurMark" };
+                foreach (var name in names)
+                {
+                    if (Process.GetProcessesByName(name).Length > 0)
+                        return true;
+                }
+            }
+            catch { }
+            return false;
+        }
+
         private bool LaunchToolInternal(string key, bool directDonut, out string errorMessage)
         {
             errorMessage = null;

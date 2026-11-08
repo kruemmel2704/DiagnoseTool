@@ -319,7 +319,7 @@
                                             <!-- Stop button (Visible when recording) -->
                                             <Button Classes="PrimaryButton" 
                                                     Background="#EF4444"
-                                                    Content="Stoppen &amp; PDF erstellen" 
+                                                    Content="Aufzeichnung stoppen" 
                                                     Command="{Binding StopRecordingCommand}" 
                                                     Height="36"
                                                     HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"
@@ -1507,7 +1507,21 @@
                             </TextBlock>
                         </StackPanel>
 
-                        <TextBlock Grid.Column="1" Text="Hardware Monitor Running" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" FontWeight="Bold" VerticalAlignment="Center"/>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6" VerticalAlignment="Center">
+                            <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                     Classes.connected="{Binding IsHardwareCheckConnected}">
+                                <Ellipse.Styles>
+                                    <Style Selector="Ellipse">
+                                        <Setter Property="Fill" Value="#94A3B8"/>
+                                    </Style>
+                                    <Style Selector="Ellipse.connected">
+                                        <Setter Property="Fill" Value="#10B981"/>
+                                    </Style>
+                                </Ellipse.Styles>
+                            </Ellipse>
+                            <TextBlock Text="{Binding HardwareCheckStatusDisplay}" FontSize="11" 
+                                       Foreground="{DynamicResource BrushAccentCyan}" FontWeight="Bold" VerticalAlignment="Center"/>
+                        </StackPanel>
                     </Grid>
                 </Border>
 

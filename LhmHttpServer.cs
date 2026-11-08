@@ -102,6 +102,80 @@ namespace DiagnoseTool
             }
             return false;
         }
+
+        public static bool EnsureDiscoveryFirewallRule()
+        {
+            try
+            {
+                if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+                    return false;
+
+                // Check if rule already exists
+                var checkPsi = new ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = "advfirewall firewall show rule name=\"DiagnoseTool Discovery Port 5087 UDP\"",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var checkProc = Process.Start(checkPsi);
+                if (checkProc != null)
+                {
+                    string output = checkProc.StandardOutput.ReadToEnd();
+                    checkProc.WaitForExit(3000);
+                    if (checkProc.ExitCode == 0 && output.IndexOf("DiagnoseTool Discovery Port 5087 UDP", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return true;
+                    }
+                }
+
+                // Add inbound rule for port 5087 UDP
+                var addPsi = new ProcessStartInfo
+                {
+                    FileName = "netsh",
+                    Arguments = "advfirewall firewall add rule name=\"DiagnoseTool Discovery Port 5087 UDP\" dir=in action=allow protocol=UDP localport=5087",
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    UseShellExecute = false,
+                    CreateNoWindow = true
+                };
+
+                using var addProc = Process.Start(addPsi);
+                if (addProc != null)
+                {
+                    addProc.WaitForExit(4000);
+                    return addProc.ExitCode == 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"[FirewallHelper UDP] Failed: {ex.Message}");
+            }
+            return false;
+        }
+    }
+
+    public class TelemetryStressStatus
+    {
+        public bool IsCpuStressRunning { get; set; }
+        public string CpuStressRemaining { get; set; } = "00:00";
+        public int CpuStressThreads { get; set; }
+        public bool IsRamStressRunning { get; set; }
+        public string RamStressRemaining { get; set; } = "00:00";
+        public double RamStressAllocatedGb { get; set; }
+        public int RamStressPassCount { get; set; }
+        public int RamStressErrorCount { get; set; }
+        public bool IsGpuStressRunning { get; set; }
+        public bool IsFurMarkFound { get; set; }
+        public bool IsRecordingRunning { get; set; }
+        public string RecordingDuration { get; set; } = "00:00:00";
+        public int RecordedSamplesCount { get; set; }
+        public bool IsServerConnected { get; set; }
+        public string ServerHost { get; set; } = "";
+        public int ServerPort { get; set; } = 5085;
     }
 
     public class LhmHttpServer : IDisposable
@@ -113,6 +187,20 @@ namespace DiagnoseTool
         private readonly Func<SystemInfo> _systemInfoProvider;
         private readonly Func<BatteryInfo> _batteryInfoProvider;
         private string _orderNumber = "";
+
+        public Func<TelemetryStressStatus> StressStatusProvider { get; set; }
+        public Action<int?, int?> OnStartCpuStress { get; set; }
+        public Action OnStopCpuStress { get; set; }
+        public Action<int?, int?> OnStartRamStress { get; set; }
+        public Action OnStopRamStress { get; set; }
+        public Action OnLaunchFurMarkDirect { get; set; }
+        public Action OnLaunchFurMarkGui { get; set; }
+        public Action OnStopFurMark { get; set; }
+        public Action OnStopAllStress { get; set; }
+        public Action<string> OnStartRecording { get; set; }
+        public Action OnStopRecording { get; set; }
+        public Action<string> OnSetOrderNumber { get; set; }
+        public Action OnExitApplication { get; set; }
 
         public bool IsRunning { get; private set; }
         public int Port { get; } = 8085;
@@ -128,9 +216,18 @@ namespace DiagnoseTool
             _batteryInfoProvider = batteryInfoProvider;
         }
 
+        public void UpdateOrderNumber(string orderNumber)
+        {
+            _orderNumber = orderNumber?.Trim() ?? "";
+        }
+
         public bool Start(string orderNumber = null)
         {
-            if (IsRunning) return true;
+            if (IsRunning)
+            {
+                if (orderNumber != null) UpdateOrderNumber(orderNumber);
+                return true;
+            }
 
             _orderNumber = orderNumber?.Trim() ?? "";
 
@@ -246,40 +343,169 @@ namespace DiagnoseTool
                 }
 
                 string path = req.Url.AbsolutePath.ToLowerInvariant();
+                string method = req.HttpMethod.ToUpperInvariant();
 
-                if (path == "/" || path == "/data.json")
+                // 1. GET Endpoints
+                if (method == "GET")
                 {
-                    var tree = BuildLhmTree();
-                    string json = JsonSerializer.Serialize(tree, new JsonSerializerOptions
+                    if (path == "/" || path == "/data.json")
                     {
-                        WriteIndented = true,
-                        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-                    });
-
-                    byte[] buffer = Encoding.UTF8.GetBytes(json);
-                    resp.ContentType = "application/json; charset=utf-8";
-                    resp.ContentLength64 = buffer.Length;
-                    resp.OutputStream.Write(buffer, 0, buffer.Length);
+                        var tree = BuildLhmTree();
+                        SendResponseJson(resp, tree);
+                    }
+                    else if (path == "/api/telemetry" || path == "/telemetry")
+                    {
+                        var telemetry = BuildTelemetryData();
+                        SendResponseJson(resp, telemetry);
+                    }
+                    else if (path == "/api/status" || path == "/status")
+                    {
+                        var stress = StressStatusProvider?.Invoke();
+                        var statusObj = new
+                        {
+                            status = "online",
+                            appName = "CPM DiagnoseTool",
+                            version = "2.2.0",
+                            port = Port,
+                            machineName = Environment.MachineName,
+                            orderNumber = _orderNumber,
+                            serverTime = DateTime.UtcNow.ToString("o"),
+                            serverConnection = new
+                            {
+                                isConnected = stress?.IsServerConnected ?? false,
+                                serverHost = stress?.ServerHost ?? "",
+                                serverPort = stress?.ServerPort ?? 5085
+                            },
+                            stressTests = new
+                            {
+                                isCpuStressRunning = stress?.IsCpuStressRunning ?? false,
+                                isRamStressRunning = stress?.IsRamStressRunning ?? false,
+                                isGpuStressRunning = stress?.IsGpuStressRunning ?? false,
+                                isRecordingRunning = stress?.IsRecordingRunning ?? false
+                            }
+                        };
+                        SendResponseJson(resp, statusObj);
+                    }
+                    else if (path == "/api/stress" || path == "/api/control/status")
+                    {
+                        var stress = StressStatusProvider?.Invoke() ?? new TelemetryStressStatus();
+                        SendResponseJson(resp, stress);
+                    }
+                    else
+                    {
+                        resp.StatusCode = (int)HttpStatusCode.NotFound;
+                        SendResponseJson(resp, new { error = "Endpoint not found" }, 404);
+                    }
                 }
-                else if (path == "/api/status" || path == "/status")
+                // 2. POST Endpoints (Control Actions)
+                else if (method == "POST")
                 {
-                    var statusObj = new
+                    string body = "";
+                    if (req.HasEntityBody)
                     {
-                        status = "online",
-                        port = Port,
-                        machineName = Environment.MachineName,
-                        orderNumber = _orderNumber,
-                        serverTime = DateTime.UtcNow.ToString("o")
-                    };
-                    string json = JsonSerializer.Serialize(statusObj);
-                    byte[] buffer = Encoding.UTF8.GetBytes(json);
-                    resp.ContentType = "application/json; charset=utf-8";
-                    resp.ContentLength64 = buffer.Length;
-                    resp.OutputStream.Write(buffer, 0, buffer.Length);
+                        using var reader = new StreamReader(req.InputStream, req.ContentEncoding ?? Encoding.UTF8);
+                        body = reader.ReadToEnd();
+                    }
+
+                    JsonElement? root = null;
+                    if (!string.IsNullOrWhiteSpace(body))
+                    {
+                        try
+                        {
+                            using var doc = JsonDocument.Parse(body);
+                            root = doc.RootElement.Clone();
+                        }
+                        catch { }
+                    }
+
+                    if (path == "/api/control/stress/cpu/start" || path == "/api/stress/cpu/start")
+                    {
+                        int? threads = root.HasValue && root.Value.TryGetProperty("threads", out var th) && th.TryGetInt32(out int tVal) ? tVal : (int?)null;
+                        int? duration = root.HasValue && root.Value.TryGetProperty("durationMinutes", out var dm) && dm.TryGetInt32(out int dVal) ? dVal : (int?)null;
+                        OnStartCpuStress?.Invoke(duration, threads);
+                        SendResponseJson(resp, new { success = true, action = "cpu_start", message = "CPU-Stresstest via API ausgelöst" });
+                    }
+                    else if (path == "/api/control/stress/cpu/stop" || path == "/api/stress/cpu/stop")
+                    {
+                        OnStopCpuStress?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "cpu_stop", message = "CPU-Stresstest via API gestoppt" });
+                    }
+                    else if (path == "/api/control/stress/ram/start" || path == "/api/stress/ram/start")
+                    {
+                        int? targetPercent = root.HasValue && root.Value.TryGetProperty("targetPercent", out var tp) && tp.TryGetInt32(out int pVal) ? pVal : (int?)null;
+                        int? duration = root.HasValue && root.Value.TryGetProperty("durationMinutes", out var dm) && dm.TryGetInt32(out int dVal) ? dVal : (int?)null;
+                        OnStartRamStress?.Invoke(duration, targetPercent);
+                        SendResponseJson(resp, new { success = true, action = "ram_start", message = "RAM-Stresstest via API ausgelöst" });
+                    }
+                    else if (path == "/api/control/stress/ram/stop" || path == "/api/stress/ram/stop")
+                    {
+                        OnStopRamStress?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "ram_stop", message = "RAM-Stresstest via API gestoppt" });
+                    }
+                    else if (path == "/api/control/stress/gpu/donut" || path == "/api/stress/gpu/donut")
+                    {
+                        OnLaunchFurMarkDirect?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "gpu_donut", message = "FurMark 3D Donut Stresstest via API gestartet" });
+                    }
+                    else if (path == "/api/control/stress/gpu/gui" || path == "/api/stress/gpu/gui")
+                    {
+                        OnLaunchFurMarkGui?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "gpu_gui", message = "FurMark GUI via API gestartet" });
+                    }
+                    else if (path == "/api/control/stress/gpu/stop" || path == "/api/stress/gpu/stop")
+                    {
+                        OnStopFurMark?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "gpu_stop", message = "FurMark via API beendet" });
+                    }
+                    else if (path == "/api/control/stress/stop-all" || path == "/api/stress/stop-all")
+                    {
+                        OnStopAllStress?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "stop_all", message = "Alle Stresstests via API gestoppt" });
+                    }
+                    else if (path == "/api/control/recording/start" || path == "/api/recording/start")
+                    {
+                        string orderNo = root.HasValue && root.Value.TryGetProperty("orderNumber", out var on) ? on.GetString() : null;
+                        if (!string.IsNullOrWhiteSpace(orderNo))
+                        {
+                            UpdateOrderNumber(orderNo);
+                        }
+                        OnStartRecording?.Invoke(orderNo);
+                        SendResponseJson(resp, new { success = true, action = "recording_start", orderNumber = _orderNumber, message = "Werte-Aufzeichnung via API gestartet" });
+                    }
+                    else if (path == "/api/control/recording/stop" || path == "/api/recording/stop")
+                    {
+                        OnStopRecording?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "recording_stop", message = "Werte-Aufzeichnung via API gestoppt" });
+                    }
+                    else if (path == "/api/control/order")
+                    {
+                        string orderNo = root.HasValue && root.Value.TryGetProperty("orderNumber", out var on) ? on.GetString() : null;
+                        if (!string.IsNullOrWhiteSpace(orderNo))
+                        {
+                            UpdateOrderNumber(orderNo);
+                            OnSetOrderNumber?.Invoke(orderNo);
+                        }
+                        SendResponseJson(resp, new { success = true, orderNumber = _orderNumber });
+                    }
+                    else if (path == "/api/control/app/exit" || path == "/api/control/close" || path == "/api/control/shutdown")
+                    {
+                        SendResponseJson(resp, new { success = true, action = "app_exit", message = "Tests abgeschlossen. DiagnoseTool wird beendet." });
+                        _ = Task.Run(async () =>
+                        {
+                            await Task.Delay(400);
+                            OnExitApplication?.Invoke();
+                        });
+                    }
+                    else
+                    {
+                        resp.StatusCode = (int)HttpStatusCode.NotFound;
+                        SendResponseJson(resp, new { error = "Action endpoint not found" }, 404);
+                    }
                 }
                 else
                 {
-                    resp.StatusCode = (int)HttpStatusCode.NotFound;
+                    resp.StatusCode = (int)HttpStatusCode.MethodNotAllowed;
+                    SendResponseJson(resp, new { error = "Method not allowed" }, 405);
                 }
             }
             catch (Exception ex)
@@ -291,6 +517,123 @@ namespace DiagnoseTool
             {
                 try { resp.Close(); } catch { }
             }
+        }
+
+        private static void SendResponseJson(HttpListenerResponse resp, object data, int statusCode = 200)
+        {
+            string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            });
+            byte[] buffer = Encoding.UTF8.GetBytes(json);
+            resp.StatusCode = statusCode;
+            resp.ContentType = "application/json; charset=utf-8";
+            resp.ContentLength64 = buffer.Length;
+            resp.OutputStream.Write(buffer, 0, buffer.Length);
+        }
+
+        public object BuildTelemetryData()
+        {
+            var diag = _diagnosticsProvider?.Invoke();
+            var sys = _systemInfoProvider?.Invoke();
+            var batt = _batteryInfoProvider?.Invoke();
+            var stress = StressStatusProvider?.Invoke() ?? new TelemetryStressStatus();
+
+            return new
+            {
+                version = "2.2.0",
+                machineName = Environment.MachineName,
+                orderNumber = _orderNumber,
+                serverTime = DateTime.UtcNow.ToString("o"),
+                system = new
+                {
+                    manufacturer = sys?.Manufacturer ?? "Unbekannt",
+                    model = sys?.Model ?? "Unbekannt",
+                    motherboardManufacturer = sys?.MotherboardManufacturer ?? "Unbekannt",
+                    motherboardModel = sys?.MotherboardModel ?? diag?.MotherboardName ?? "Unbekannt",
+                    serialNumber = sys?.SerialNumber ?? "Unbekannt",
+                    fullName = sys?.FullSystemName ?? Environment.MachineName
+                },
+                cpu = new
+                {
+                    name = diag?.CpuName ?? "CPU",
+                    clockGhz = diag?.CpuClockSpeed ?? 0,
+                    loadPercent = diag?.CpuAverageLoad ?? 0,
+                    packageTemp = diag?.CpuAverageTemp ?? 0,
+                    powerWatts = diag?.CpuPackagePower ?? 0,
+                    voltage = diag?.CpuVoltage ?? 0,
+                    coreCount = diag?.CpuCores?.Count ?? 0,
+                    cores = diag?.CpuCores?.Select(c => new
+                    {
+                        index = c.CoreIndex,
+                        load = c.Load,
+                        temp = c.Temperature
+                    })
+                },
+                gpu = new
+                {
+                    name = diag?.GpuName ?? "GPU",
+                    loadPercent = diag?.GpuLoad ?? 0,
+                    temp = diag?.GpuTemp ?? 0,
+                    hotspotTemp = diag?.GpuHotSpotTemp ?? 0,
+                    vramUsedMb = diag?.GpuVramUsedMb ?? 0,
+                    vramTotalMb = diag?.GpuVramTotalMb ?? 0,
+                    clockSpeed = diag?.GpuClockSpeed ?? 0,
+                    power = diag?.GpuPower ?? 0,
+                    isDedicated = diag != null && diag.GpuTemp.HasValue && diag.GpuTemp.Value > 0
+                },
+                ram = new
+                {
+                    usedGb = diag?.RamUsedGb ?? 0,
+                    totalGb = diag?.RamTotalGb ?? 0,
+                    loadPercent = diag?.RamPercent ?? 0
+                },
+                battery = new
+                {
+                    hasBattery = batt?.IsPresent ?? false,
+                    percent = batt?.CurrentChargePercent ?? 0,
+                    isCharging = batt?.IsCharging ?? false,
+                    isConnectedToAc = batt?.IsConnectedToAc ?? false,
+                    healthPercent = batt?.HealthPercent ?? 100,
+                    designCapacity = batt?.DesignCapacity ?? 0,
+                    fullChargeCapacity = batt?.FullChargeCapacity ?? 0
+                },
+                storage = diag?.StorageDrives?.Select(d => new
+                {
+                    name = d.Name,
+                    temperature = d.Temperature,
+                    usedPercent = d.UsedSpacePercent,
+                    healthPercent = d.HealthPercent
+                }),
+                fans = diag?.Fans?.Select(f => new
+                {
+                    name = f.Name,
+                    rpm = f.Rpm
+                }),
+                stressTests = new
+                {
+                    isCpuStressRunning = stress.IsCpuStressRunning,
+                    cpuStressRemaining = stress.CpuStressRemaining,
+                    cpuStressThreads = stress.CpuStressThreads,
+                    isRamStressRunning = stress.IsRamStressRunning,
+                    ramStressRemaining = stress.RamStressRemaining,
+                    ramStressAllocatedGb = stress.RamStressAllocatedGb,
+                    ramStressPassCount = stress.RamStressPassCount,
+                    ramStressErrorCount = stress.RamStressErrorCount,
+                    isGpuStressRunning = stress.IsGpuStressRunning,
+                    isFurMarkFound = stress.IsFurMarkFound,
+                    isRecordingRunning = stress.IsRecordingRunning,
+                    recordingDuration = stress.RecordingDuration,
+                    recordedSamplesCount = stress.RecordedSamplesCount
+                },
+                serverConnection = new
+                {
+                    isConnected = stress.IsServerConnected,
+                    serverHost = stress.ServerHost,
+                    serverPort = stress.ServerPort
+                }
+            };
         }
 
         public LhmNode BuildLhmTree()
