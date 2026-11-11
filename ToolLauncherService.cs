@@ -40,16 +40,9 @@ namespace DiagnoseTool
 
         private void InitializeTools()
         {
+            // Nur noch FurMark: CPU-/RAM-Stresstest, Akkutest und Sensorik (LibreHardwareMonitor) sind im DiagnoseTool integriert
             Tools = new List<TestTool>
             {
-                new TestTool
-                {
-                    Key = "OCCT",
-                    Name = "OCCT",
-                    ExeName = "OCCT.exe",
-                    AlternateExeName = "OCCTPersonal.exe",
-                    Description = "Zuverlässiges Tool für CPU-, GPU- und Netzteil-Stabilitätstests sowie Fehlererkennung."
-                },
                 new TestTool
                 {
                     Key = "FurMark",
@@ -57,22 +50,6 @@ namespace DiagnoseTool
                     ExeName = "FurMark_GUI.exe",
                     AlternateExeName = "furmark.exe",
                     Description = "Intensiver GPU-Stresstest (Donut-Generator) zur Überprüfung von Grafikkarten-Stabilität und maximaler Auslastung."
-                },
-                new TestTool
-                {
-                    Key = "Prime95",
-                    Name = "Prime95",
-                    ExeName = "prime95.exe",
-                    AlternateExeName = "prime95w.exe",
-                    Description = "Legendärer CPU-Stresstest mit Primzahlberechnungen zur Ermittlung von Rechen- und Hardwarefehlern."
-                },
-                new TestTool
-                {
-                    Key = "Victoria",
-                    Name = "Victoria SSD/HDD Utility",
-                    ExeName = "Victoria.exe",
-                    AlternateExeName = "Victoria64.exe",
-                    Description = "Erweiterte Datenträger-Diagnose. Prüft Speicherblöcke, Zugriffszeiten, SMART-Zustand und defekte Sektoren."
                 }
             };
 

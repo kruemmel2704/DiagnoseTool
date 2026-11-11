@@ -96,20 +96,6 @@
                                      Margin="0,8,0,0" />
                     </StackPanel>
 
-                    <!-- USB Detection Widget -->
-                    <Border Grid.Row="3" Classes="CardStyle" Padding="12" Margin="4,0,4,16" Background="#F8FAFC" BorderBrush="#E2E8F0">
-                        <StackPanel>
-                            <TextBlock Text="USB DRIVES SCANNER" FontSize="10" FontWeight="Bold" Foreground="{DynamicResource BrushTextMuted}" Margin="0,0,0,8"/>
-                            <Button Classes="ModernButton" 
-                                    Content="Scan Removable Drives" 
-                                    Command="{Binding RefreshUsbCommand}" 
-                                    FontSize="11" 
-                                    Padding="8,6" 
-                                    HorizontalAlignment="Stretch"/>
-                            <TextBlock Text="Press to check for USB tools" FontSize="9" Foreground="{DynamicResource BrushTextSecondary}" Margin="0,6,0,0" HorizontalAlignment="Center"/>
-                        </StackPanel>
-                    </Border>
-
                     <!-- Sidebar Footer Clock -->
                     <StackPanel Grid.Row="4" Margin="4,0,4,6">
                         <TextBlock Text="{Binding CurrentTime}" 
@@ -142,7 +128,7 @@
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" Margin="0,0,0,20" Background="Transparent" PointerPressed="TitleBar_PointerPressed">
                     <StackPanel Grid.Column="0" Orientation="Vertical">
                         <TextBlock Text="Hardware Diagnostics &amp; Benchmarks" Classes="TextHeader"/>
-                        <TextBlock Text="Real-time monitoring and fast execution of USB stress-testing utilities." Classes="TextSubheader" Margin="0,4,0,0"/>
+                        <TextBlock Text="Echtzeit-Überwachung (LibreHardwareMonitor) und integrierte Stresstests." Classes="TextSubheader" Margin="0,4,0,0"/>
                     </StackPanel>
 
                     <!-- Minimize / Maximize / Close Buttons -->
@@ -486,64 +472,12 @@
                                                        TextWrapping="Wrap"
                                                        Margin="0,0,0,8"/>
                                             
-                                            <TextBlock Text="Empfohlene Lösung (Kernisolierung aktiv lassen):" 
+                                            <TextBlock Text="Lösung:" 
                                                        FontWeight="Bold"
                                                        Foreground="{DynamicResource BrushTextPrimary}" 
                                                        FontSize="11" 
                                                        Margin="0,0,0,4"/>
-                                            <TextBlock Text="Nutze HWiNFO Portable als treiberlosen Fallback! Starte HWiNFO und aktiviere in dessen Einstellungen (Sensoren -> Zahnrad -> HWiNFO Gadget) die Option 'Enable reporting to Gadget' sowie 'Report value in Gadget' für die CPU/GPU-Temperaturen." 
-                                                       Foreground="{DynamicResource BrushTextSecondary}" 
-                                                       FontSize="11" 
-                                                       TextWrapping="Wrap"
-                                                       Margin="0,0,0,10"/>
-
-                                            <!-- Button to start HWiNFO if found -->
-                                            <StackPanel Orientation="Horizontal">
-                                                <Button Content="HWiNFO64 starten" 
-                                                        Command="{Binding StartHWiNFOCommand}"
-                                                        Classes="ModernButton"
-                                                        FontSize="11"
-                                                        Padding="12,5"
-                                                        Height="28"
-                                                        IsVisible="{Binding IsHWiNFOPortableFound}" />
-                                                
-                                                <TextBlock Text="Hinweis: Kopiere HWiNFO64.exe in den 'Tools'-Ordner für Direktstart." 
-                                                           Foreground="{DynamicResource BrushTextMuted}" 
-                                                           FontSize="10"
-                                                           VerticalAlignment="Center"
-                                                           Margin="0,4,0,0"
-                                                           IsVisible="{Binding !IsHWiNFOPortableFound}" />
-                                            </StackPanel>
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-
-                                <!-- Info panel for HWiNFO Fallback Active -->
-                                <Border Grid.Row="3" 
-                                        Background="#DCFCE7" 
-                                        BorderBrush="#10B981" 
-                                        BorderThickness="1" 
-                                        CornerRadius="6" 
-                                        Padding="12" 
-                                        Margin="0,0,0,12"
-                                        IsVisible="{Binding IsHWiNFOFallbackActive}">
-                                    <Grid ColumnDefinitions="Auto,*">
-                                        <!-- Info Icon -->
-                                        <Path Grid.Column="0" 
-                                              Data="M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M12,4A8,8 0 0,1 20,12A8,8 0 0,1 12,20A8,8 0 0,1 4,12A8,8 0 0,1 12,4M11,8H13V10H11V8M11,12H13V18H11V12Z" 
-                                              Fill="#10B981" 
-                                              Width="20" Height="20" 
-                                              Stretch="Uniform" 
-                                              VerticalAlignment="Top" 
-                                              Margin="0,2,10,0"/>
-                                               
-                                        <StackPanel Grid.Column="1">
-                                            <TextBlock Text="HWiNFO Fallback Aktiv" 
-                                                       FontWeight="Bold" 
-                                                       Foreground="#10B981" 
-                                                       FontSize="12" 
-                                                       Margin="0,0,0,4"/>
-                                            <TextBlock Text="Temperaturen werden sicher über das im Hintergrund laufende HWiNFO64 bezogen. Es ist kein Deaktivieren der Windows-Kernisolierung nötig." 
+                                            <TextBlock Text="DiagnoseTool mit Administratorrechten starten. Bleiben die Temperaturen leer, in Windows-Sicherheit → Gerätesicherheit → Kernisolierung die Speicherintegrität für die Dauer des Tests prüfen, damit LibreHardwareMonitor die Sensoren auslesen kann." 
                                                        Foreground="{DynamicResource BrushTextSecondary}" 
                                                        FontSize="11" 
                                                        TextWrapping="Wrap"/>
@@ -595,7 +529,7 @@
                                         <TextBlock Text="GPU STRESSTEST &amp; FURMARK" FontWeight="Bold" FontSize="14" Foreground="{DynamicResource BrushAccentCyan}"/>
                                         <TextBlock Text="Hardwarenaher Belastungstest für die Grafikkarte zur Überprüfung von Stabilität, Kühlung und maximaler Leistungsaufnahme." Classes="TextMuted" Margin="0,3,0,0"/>
                                     </StackPanel>
-                                    <Button Grid.Column="1" Classes="ModernButton" Content="USB neu scannen" Command="{Binding RefreshUsbCommand}" Padding="12,6" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Classes="ModernButton" Content="FurMark neu suchen" Command="{Binding RefreshUsbCommand}" Padding="12,6" VerticalAlignment="Center"/>
                                 </Grid>
                             </Border>
 
@@ -785,32 +719,18 @@
                             <StackPanel>
                                 <Border Classes="CardStyle">
                                     <StackPanel>
-                                        <TextBlock Text="Stress-Testing and Diagnostics Guide" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,0,10"/>
-                                        <TextBlock Text="This utility is designed for system administrators, overclockers, and hardware technicians. By putting stress testing tools directly on a USB drive, you can run diagnostic tests on any PC quickly without installing bloatware." Classes="TextSubheader" TextWrapping="Wrap" Margin="0,0,0,15"/>
+                                        <TextBlock Text="Stresstest- &amp; Diagnose-Leitfaden" FontSize="16" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,0,10"/>
+                                        <TextBlock Text="Alle Tests sind direkt im DiagnoseTool integriert – es werden keine externen Tools benötigt. Die Sensorwerte liefert LibreHardwareMonitor." Classes="TextSubheader" TextWrapping="Wrap" Margin="0,0,0,15"/>
 
                                         <Separator Background="#E2E8F0" Margin="0,0,0,15"/>
 
-                                        <TextBlock Text="How to set up your USB stick:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,6"/>
-                                        <TextBlock Text="1. Insert your USB stick into the diagnostic computer." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
-                                        <TextBlock Text="2. Create the folders or place the executables in the root directories of the USB:" Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
-                                        
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" OCCT: Place OCCT.exe or OCCTPersonal.exe" Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" FurMark: Place FurMark.exe or FurMark2.exe" Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" Prime95: Place prime95.exe" Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        
-                                        <TextBlock Text="3. Click 'Scan Removable Drives' in the sidebar or 'Rescan' on the Tools page to auto-detect them." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,4,0,10"/>
+                                        <TextBlock Text="Verfügbare Tests:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,6"/>
+                                        <TextBlock Text="• CPU-Stresstest und RAM-Stresstest (integriert)" Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="• GPU-Stresstest mit FurMark (im Programm eingebettet, wird bei Bedarf automatisch entpackt)" Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
+                                        <TextBlock Text="• Akkutest, Werte-Aufzeichnung und PDF-Prüfberichte" Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,10"/>
 
-                                        <TextBlock Text="Manual Override:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,10,0,6"/>
-                                        <TextBlock Text="If you want to run the tools from a local folder instead of a USB stick, click 'Browse...' in the Tools tab and select the executable. The program will remember this path by writing it to tool_paths.txt in the application directory." Classes="TextSubheader" TextWrapping="Wrap" Margin="10,0,0,10"/>
+                                        <TextBlock Text="Eigene FurMark-Version:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,10,0,6"/>
+                                        <TextBlock Text="Über 'Durchsuchen...' im Tab GPU-Stresstest kann eine andere FurMark-Installation gewählt werden. Der Pfad wird in tool_paths.txt gespeichert; 'Zurücksetzen' stellt die eingebettete Version wieder her." Classes="TextSubheader" TextWrapping="Wrap" Margin="10,0,0,10"/>
                                     </StackPanel>
                                 </Border>
 
@@ -838,41 +758,6 @@
                                     </StackPanel>
                                 </Border>
 
-                                <Border Classes="CardStyle" Margin="0,12,0,0">
-                                    <StackPanel>
-                                        <TextBlock Text="Windows Kernisolierung (Core Isolation) Fallback Setup" FontSize="15" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,0,10"/>
-                                        <TextBlock Text="Wenn Windows Kernisolierung (Speicherintegrität) aktiv ist, blockiert das System den direkten Hardware-Treiber dieses Tools. Du kannst das umgehen, indem du HWiNFO64 Portable als treiberlosen Datenlieferanten einbindest:" Classes="TextSubheader" TextWrapping="Wrap" Margin="0,0,0,15"/>
-                                        
-                                        <TextBlock Text="Schritt-für-Schritt-Anleitung:" FontWeight="SemiBold" FontSize="13" Foreground="{DynamicResource BrushTextPrimary}" Margin="0,0,0,6"/>
-                                        <TextBlock Text="1. Lade dir HWiNFO Portable herunter (kostenlos auf hwinfo.com)." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
-                                        <TextBlock Text="2. Kopiere die Datei HWiNFO64.exe in den 'Tools'-Ordner deiner DiagnoseTool-Ausführung." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
-                                        <TextBlock Text="3. Starte HWiNFO über den Button 'HWiNFO64 starten' im Dashboard oder führe es manuell aus." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
-                                        <TextBlock Text="4. Aktiviere den Registry-Gadget-Export in HWiNFO:" Foreground="{DynamicResource BrushTextSecondary}" Margin="10,0,0,4"/>
-                                        
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" Öffne das HWiNFO Sensoren-Fenster." Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" Klicke unten rechts auf das Zahnrad-Symbol (Configure Sensors)." Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" Gehe auf den Tab 'HWiNFO Gadget' (ganz rechts)." Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" Setze den Haken bei 'Enable reporting to Gadget'." Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        <StackPanel Orientation="Horizontal" Margin="30,0,0,4">
-                                            <Ellipse Width="4" Height="4" Fill="{DynamicResource BrushAccentCyan}" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                                            <TextBlock Text=" Wähle die gewünschten Zeilen aus (z.B. 'CPU Die' oder 'GPU Temperature') und hake jeweils 'Report value in Gadget' an." Foreground="{DynamicResource BrushTextSecondary}"/>
-                                        </StackPanel>
-                                        
-                                        <TextBlock Text="5. Fertig! Sobald HWiNFO im Hintergrund läuft, liest das DiagnoseTool alle Temperaturen automatisch ein." Foreground="{DynamicResource BrushTextSecondary}" Margin="10,4,0,10"/>
-                                    </StackPanel>
-                                </Border>
                             </StackPanel>
                         </ScrollViewer>
                     </Grid>

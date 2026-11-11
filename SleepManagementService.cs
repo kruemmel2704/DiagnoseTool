@@ -28,6 +28,8 @@ namespace DiagnoseTool
         private static Timer _heartbeatTimer;
         private static bool _isActive = false;
 
+        public static bool IsActive => _isActive;
+
         public static void PreventSleepAndHibernate()
         {
             if (!OperatingSystem.IsWindows()) return;

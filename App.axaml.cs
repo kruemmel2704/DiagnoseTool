@@ -18,8 +18,13 @@ namespace DiagnoseTool
                 // Verhindert Ruhezustand & Standby während die Diagnose-App läuft
                 SleepManagementService.PreventSleepAndHibernate();
 
+                // Sitzungsüberwachung: erkennt unsaubere Beendigung (Absturz) der letzten Sitzung
+                SessionLifecycleService.Initialize();
+
                 desktop.Exit += (s, e) =>
                 {
+                    // Ordentliches Beenden -> Hardware-Check zeigt "Programm geschlossen" statt "Absturz"
+                    SessionLifecycleService.MarkCleanExit("app_exit");
                     SleepManagementService.RestoreNormalSleep();
                 };
 

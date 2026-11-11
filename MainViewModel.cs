@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Threading;
-using Microsoft.Win32;
 
 namespace DiagnoseTool
 {
-    public class MainViewModel : ViewModelBase, IDisposable
+    public partial class MainViewModel : ViewModelBase, IDisposable, IDiagnoseRemoteControl
     {
         private readonly HardwareMonitorService _monitorService;
         private readonly ToolLauncherService _launcherService;
@@ -22,7 +21,6 @@ namespace DiagnoseTool
         private bool _isAdmin = false;
         private bool _hasDriverError = false;
         private bool _isLhmDriverBlocked = false;
-        private bool _isHWiNFOFallbackActive = false;
         
         // Recording states
         private bool _isRecording = false;
@@ -35,6 +33,8 @@ namespace DiagnoseTool
         private SystemInfo _systemInfo;
         private bool _isBatteryTestRunning = false;
         private TimeSpan _batteryTestRemainingTime;
+        private TimeSpan _batteryTestTotalDuration = TimeSpan.FromMinutes(30);
+        private DateTime _batteryTestStartTime = DateTime.Now;
         private string _batteryTestRemainingDisplay = "30:00";
         private double _batteryTestStartPercent;
         private double _batteryTestCurrentPercent;
@@ -104,7 +104,6 @@ namespace DiagnoseTool
             StartBatteryTestCommand = new RelayCommand(ExecuteStartBatteryTest, () => !IsBatteryTestRunning);
             StopBatteryTestCommand = new RelayCommand(ExecuteStopBatteryTest, () => IsBatteryTestRunning);
             SaveBatteryReportCommand = new RelayCommand(ExecuteSaveBatteryReport, () => BatteryTestCompleted);
-            StartHWiNFOCommand = new RelayCommand(ExecuteStartHWiNFO);
             StartCpuStressCommand = new RelayCommand(ExecuteStartCpuStress, () => !IsCpuStressRunning);
             StopCpuStressCommand = new RelayCommand(ExecuteStopCpuStress, () => IsCpuStressRunning);
             StartRamStressCommand = new RelayCommand(ExecuteStartRamStress, () => !IsRamStressRunning);
@@ -125,13 +124,6 @@ namespace DiagnoseTool
             _batteryInfo = BatteryService.GetBatteryInfo(_diagnostics?.BatteryData);
             _systemInfo = SystemInfoService.GetSystemInfo();
 
-            // Automate HWiNFO startup if driver is blocked or GPU temperature is missing, HWiNFO is portable, and not already running
-            bool isGpuTempMissing = Diagnostics == null || !Diagnostics.GpuTemp.HasValue || Diagnostics.GpuTemp.Value == 0;
-            if ((IsLhmDriverBlocked || isGpuTempMissing) && IsHWiNFOPortableFound && !IsHWiNFORunning())
-            {
-                ExecuteStartHWiNFO();
-            }
-
             // Setup timer to refresh data every second
             _timer = new DispatcherTimer
             {
@@ -139,6 +131,9 @@ namespace DiagnoseTool
             };
             _timer.Tick += TimerTick;
             _timer.Start();
+
+            // Sitzungsüberwachung mit Kontext versorgen (für Absturzanalyse & Abmeldung bei Hardware-Check)
+            InitializeSessionLifecycle();
 
             // Start API Server and UDP autodiscovery immediately on application start
             StartOnlineMonitoring();
@@ -391,17 +386,7 @@ namespace DiagnoseTool
             set => SetProperty(ref _isLhmDriverBlocked, value);
         }
 
-        public bool IsHWiNFOFallbackActive
-        {
-            get => _isHWiNFOFallbackActive;
-            set => SetProperty(ref _isHWiNFOFallbackActive, value);
-        }
-
-        public bool IsHWiNFOPortableFound => !string.IsNullOrEmpty(GetHWiNFOPath());
-
-        public RelayCommand StartHWiNFOCommand { get; }
-
-        public string AdminStatusText => IsAdmin ? "v2.3 | Admin Privileges Active" : "v2.3 | No Admin Privileges (Restricted)";
+        public string AdminStatusText => IsAdmin ? $"v{AppInfo.ShortVersion} | Admin Privileges Active" : $"v{AppInfo.ShortVersion} | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
@@ -603,7 +588,7 @@ namespace DiagnoseTool
                 BatteryTestCurrentPercent = BatteryInfo.IsPresent ? BatteryInfo.CurrentChargePercent : 0;
 
                 // Log every 60 seconds (when seconds is 0, except at the exact start duration)
-                if (_batteryTestRemainingTime.Seconds == 0 && _batteryTestRemainingTime.TotalSeconds < 1800)
+                if (_batteryTestRemainingTime.Seconds == 0 && _batteryTestRemainingTime.TotalSeconds < _batteryTestTotalDuration.TotalSeconds)
                 {
                     double currentDrop = BatteryTestStartPercent - BatteryTestCurrentPercent;
                     if (currentDrop < 0) currentDrop = 0;
@@ -689,13 +674,11 @@ namespace DiagnoseTool
             if (Diagnostics != null)
             {
                 IsLhmDriverBlocked = Diagnostics.IsLhmDriverBlocked;
-                IsHWiNFOFallbackActive = Diagnostics.IsHWiNFOFallbackActive;
-                HasDriverError = IsLhmDriverBlocked && !IsHWiNFOFallbackActive;
+                HasDriverError = IsLhmDriverBlocked;
             }
             else
             {
                 IsLhmDriverBlocked = false;
-                IsHWiNFOFallbackActive = false;
                 HasDriverError = false;
             }
         }
@@ -770,6 +753,11 @@ namespace DiagnoseTool
 
         private void ExecuteRunRepair(string key)
         {
+            RunRepairCore(key, out _);
+        }
+
+        private bool RunRepairCore(string key, out string message)
+        {
             string commandArgs = "";
             string description = "";
 
@@ -792,8 +780,9 @@ namespace DiagnoseTool
                     description = "Chkdsk C: (Read-only)";
                     break;
                 default:
-                    ShowStatus("Unknown repair command", true);
-                    return;
+                    message = "Unknown repair command";
+                    ShowStatus(message, true);
+                    return false;
             }
 
             try
@@ -806,11 +795,15 @@ namespace DiagnoseTool
                     Verb = "runas"
                 };
                 System.Diagnostics.Process.Start(startInfo);
-                ShowStatus($"Started {description} in cmd window.", false);
+                message = $"Started {description} in cmd window.";
+                ShowStatus(message, false);
+                return true;
             }
             catch (Exception ex)
             {
-                ShowStatus($"Failed to start repair command: {ex.Message}", true);
+                message = $"Failed to start repair command: {ex.Message}";
+                ShowStatus(message, true);
+                return false;
             }
         }
 
@@ -884,8 +877,10 @@ namespace DiagnoseTool
                 _lhmHttpServer.OnStartRecording = (orderNo) => RemoteStartRecording(orderNo);
                 _lhmHttpServer.OnStopRecording = () => RemoteStopRecording();
                 _lhmHttpServer.OnSetOrderNumber = (orderNo) => RemoteSetOrderNumber(orderNo);
+                _lhmHttpServer.RemoteControl = this;
                 _lhmHttpServer.OnExitApplication = () =>
                 {
+                    SessionLifecycleService.MarkCleanExit("remote_exit");
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
                         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
@@ -963,7 +958,9 @@ namespace DiagnoseTool
                 RecordedSamplesCount = RecordedSamplesCount,
                 IsServerConnected = IsHardwareCheckConnected,
                 ServerHost = HardwareCheckServerInfo,
-                ServerPort = 5085
+                ServerPort = 5085,
+                SessionId = SessionLifecycleService.SessionId,
+                SessionStartedUtc = SessionLifecycleService.SessionStartedUtc.ToString("o")
             };
         }
 
@@ -1249,26 +1246,43 @@ namespace DiagnoseTool
 
         private void ExecuteStartBatteryTest()
         {
+            StartBatteryTestCore(null, true);
+        }
+
+        private bool StartBatteryTestCore(int? durationMinutes, bool openVideo)
+        {
+            if (IsBatteryTestRunning) return true;
+
             var info = BatteryService.GetBatteryInfo(Diagnostics?.BatteryData);
             if (!info.IsPresent)
             {
                 ShowStatus("Keine Batterie erkannt. Der Stresstest kann nur auf Laptops durchgeführt werden.", true);
-                return;
+                return false;
             }
+
+            int minutes = durationMinutes.HasValue && durationMinutes.Value > 0 ? Math.Min(durationMinutes.Value, 600) : 30;
+            _batteryTestTotalDuration = TimeSpan.FromMinutes(minutes);
+            _batteryTestStartTime = DateTime.Now;
 
             BatteryTestLog.Clear();
             BatteryTestStartPercent = info.CurrentChargePercent;
             BatteryTestCurrentPercent = info.CurrentChargePercent;
-            _batteryTestRemainingTime = TimeSpan.FromMinutes(30);
-            BatteryTestRemainingDisplay = "30:00";
+            _batteryTestRemainingTime = _batteryTestTotalDuration;
+            BatteryTestRemainingDisplay = string.Format("{0:D2}:00", minutes);
             BatteryTestCompleted = false;
             BatteryTestResults = null;
             IsBatteryTestRunning = true;
 
-            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Batterietest gestartet bei {1}% Ladung.", DateTime.Now, BatteryTestStartPercent));
+            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Batterietest gestartet bei {1}% Ladung (Dauer: {2} Min.).", DateTime.Now, BatteryTestStartPercent, minutes));
             if (info.IsConnectedToAc)
             {
                 BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Warnung: Ladekabel ist angeschlossen. Für verlässliche Testergebnisse bitte das Kabel trennen!", DateTime.Now));
+            }
+
+            if (!openVideo)
+            {
+                ShowStatus("Akkutest gestartet (ohne Video-Last).", false);
+                return true;
             }
 
             try
@@ -1282,6 +1296,7 @@ namespace DiagnoseTool
                 BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Fehler beim Starten des Browsers: {1}", DateTime.Now, ex.Message));
                 ShowStatus(string.Format("Fehler beim Starten des Browsers: {0}", ex.Message), true);
             }
+            return true;
         }
 
         private void OpenUrl(string url)
@@ -1327,14 +1342,15 @@ namespace DiagnoseTool
             double drain = BatteryTestStartPercent - BatteryTestCurrentPercent;
             if (drain < 0) drain = 0;
 
-            TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
+            TimeSpan elapsed = _batteryTestTotalDuration.Subtract(_batteryTestRemainingTime);
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
             double hours = elapsed.TotalHours;
             double dischargeRate = hours > 0 ? drain / hours : 0;
             double estLife = (dischargeRate > 0 && BatteryTestCurrentPercent > 0) ? BatteryTestCurrentPercent / dischargeRate : 0;
 
             string statusText = completed ? "vollständig beendet" : "abgebrochen";
             BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest {1} nach {2} Min. & {3} Sek.", 
-                DateTime.Now, statusText, elapsed.Minutes, elapsed.Seconds));
+                DateTime.Now, statusText, (int)elapsed.TotalMinutes, elapsed.Seconds));
             BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Endladung: {1}% | Gesamtverbrauch: {2}%", 
                 DateTime.Now, BatteryTestCurrentPercent, drain));
 
@@ -1342,10 +1358,10 @@ namespace DiagnoseTool
             {
                 BatteryTestResults = string.Format(
                     "Testergebnis:\n" +
-                    "• Batterie-Entladung: {0:F0}% in 30 Minuten\n" +
+                    "• Batterie-Entladung: {0:F0}% in {3:F0} Minuten\n" +
                     "• Hochgerechnete Entladungsrate: {1:F1}% pro Stunde\n" +
                     "• Geschätzte Restlaufzeit unter Last: {2:F1} Stunden",
-                    drain, dischargeRate, estLife);
+                    drain, dischargeRate, estLife, _batteryTestTotalDuration.TotalMinutes);
                 ShowStatus("Akkutest erfolgreich beendet!", false);
             }
             else
@@ -1355,7 +1371,7 @@ namespace DiagnoseTool
                     "• Testdauer: {0:D2} Min. {1:D2} Sek.\n" +
                     "• Entladung: {2:F0}%\n" +
                     "• Laufzeitprognose ungenau aufgrund des Abbruchs.",
-                    elapsed.Minutes, elapsed.Seconds, drain);
+                    (int)elapsed.TotalMinutes, elapsed.Seconds, drain);
                 ShowStatus("Akkutest abgebrochen.", false);
             }
         }
@@ -1384,26 +1400,7 @@ namespace DiagnoseTool
                         try
                         {
                             var filePath = result.Path.LocalPath;
-                            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
-                            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
-                            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
-                            
-                            TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
-                            DateTime start = DateTime.Now.Subtract(elapsed);
-
-                            PdfReportService.GenerateBatteryReport(
-                                filePath,
-                                cpu,
-                                gpu,
-                                ram,
-                                SystemInfo,
-                                BatteryInfo,
-                                start,
-                                DateTime.Now,
-                                BatteryTestStartPercent,
-                                BatteryTestCurrentPercent,
-                                new List<string>(BatteryTestLog)
-                            );
+                            WriteBatteryReport(filePath);
 
                             ShowStatus("PDF-Batteriebericht erfolgreich gespeichert!", false);
                         }
@@ -1414,6 +1411,31 @@ namespace DiagnoseTool
                     }
                 }
             }
+        }
+
+        private void WriteBatteryReport(string filePath)
+        {
+            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
+            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
+            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
+
+            TimeSpan elapsed = _batteryTestTotalDuration.Subtract(_batteryTestRemainingTime);
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+            DateTime start = IsBatteryTestRunning || BatteryTestCompleted ? _batteryTestStartTime : DateTime.Now.Subtract(elapsed);
+
+            PdfReportService.GenerateBatteryReport(
+                filePath,
+                cpu,
+                gpu,
+                ram,
+                SystemInfo,
+                BatteryInfo,
+                start,
+                DateTime.Now,
+                BatteryTestStartPercent,
+                BatteryTestCurrentPercent,
+                new List<string>(BatteryTestLog)
+            );
         }
 
         private static bool IsRunningAsAdmin()
@@ -1429,142 +1451,6 @@ namespace DiagnoseTool
             catch
             {
                 return false;
-            }
-        }        private string GetHWiNFOPath()
-        {
-            string baseDir = System.IO.Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
-            string[] paths = new[]
-            {
-                System.IO.Path.Combine(baseDir, "HWiNFO64.exe"),
-                System.IO.Path.Combine(baseDir, "Tools", "HWiNFO", "HWiNFO64.exe"),
-                System.IO.Path.Combine(baseDir, "Tools", "HWiNFO64.exe")
-            };
-
-            foreach (var p in paths)
-            {
-                if (System.IO.File.Exists(p)) return p;
-            }
-
-            return null;
-        }
-
-        private bool IsHWiNFORunning()
-        {
-            try
-            {
-                return System.Diagnostics.Process.GetProcesses()
-                    .Any(p => p.ProcessName.IndexOf("HWiNFO", StringComparison.OrdinalIgnoreCase) >= 0);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private void AutoConfigureHWiNFOSensors()
-        {
-            try
-            {
-                // 1. Enable Gadget reporting globally
-                using (var hkey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\HWiNFO64\Settings"))
-                {
-                    if (hkey != null)
-                    {
-                        hkey.SetValue("EnableReporting", 1, RegistryValueKind.DWord);
-                        hkey.SetValue("SensorsOnly", 1, RegistryValueKind.DWord);
-                        hkey.SetValue("MinimizeSensors", 1, RegistryValueKind.DWord);
-                        hkey.SetValue("ShowWelcomeScreen", 0, RegistryValueKind.DWord);
-                    }
-                }
-
-                // 2. Enable VSB (Virtual Sensor Board) reporting globally under Sensors
-                using (var sensorsKey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\HWiNFO64\Sensors"))
-                {
-                    if (sensorsKey != null)
-                    {
-                        sensorsKey.SetValue("EnableVSB", 1, RegistryValueKind.DWord);
-
-                        // 3. Scan all hardware device subkeys and enable InVSB/Sidebar for all their sensors
-                        var hwKeyNames = sensorsKey.GetSubKeyNames();
-                        foreach (var hwName in hwKeyNames)
-                        {
-                            if (hwName.Equals("Settings", StringComparison.OrdinalIgnoreCase) ||
-                                hwName.Equals("Custom", StringComparison.OrdinalIgnoreCase) ||
-                                hwName.Equals("OSD", StringComparison.OrdinalIgnoreCase))
-                            {
-                                continue;
-                            }
-
-                            using (var hwKey = sensorsKey.OpenSubKey(hwName, true))
-                            {
-                                if (hwKey == null) continue;
-
-                                var metricKeyNames = hwKey.GetSubKeyNames();
-                                foreach (var metricName in metricKeyNames)
-                                {
-                                    using (var metricKey = hwKey.OpenSubKey(metricName, true))
-                                    {
-                                        if (metricKey == null) continue;
-                                        metricKey.SetValue("InVSB", 1, RegistryValueKind.DWord);
-                                        metricKey.SetValue("Sidebar", 1, RegistryValueKind.DWord);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 4. Backwards compatibility for legacy Settings subkey
-                using (var legacySettingsKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\HWiNFO64\Sensors\Settings", true))
-                {
-                    if (legacySettingsKey != null)
-                    {
-                        var subKeyNames = legacySettingsKey.GetSubKeyNames();
-                        foreach (var subName in subKeyNames)
-                        {
-                            using (var subKey = legacySettingsKey.OpenSubKey(subName, true))
-                            {
-                                if (subKey == null) continue;
-                                subKey.SetValue("InVSB", 1, RegistryValueKind.DWord);
-                                subKey.SetValue("Sidebar", 1, RegistryValueKind.DWord);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to auto-configure HWiNFO sensors: {ex.Message}");
-            }
-        }
-
-        private void ExecuteStartHWiNFO()
-        {
-            string hwinfoPath = GetHWiNFOPath();
-            if (string.IsNullOrEmpty(hwinfoPath))
-            {
-                ShowStatus("HWiNFO64.exe nicht im Tools-Ordner gefunden.", true);
-                return;
-            }
-
-            try
-            {
-                // Automate HWiNFO configuration dynamically
-                AutoConfigureHWiNFOSensors();
-
-                var startInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = hwinfoPath,
-                    Arguments = "", // No command line flags to avoid free version warnings; registry configurations handle layout
-                    WorkingDirectory = System.IO.Path.GetDirectoryName(hwinfoPath),
-                    UseShellExecute = true
-                };
-                System.Diagnostics.Process.Start(startInfo);
-                ShowStatus("HWiNFO64 im Hintergrund gestartet und konfiguriert.", false);
-            }
-            catch (Exception ex)
-            {
-                ShowStatus($"Fehler beim Starten von HWiNFO: {ex.Message}", true);
             }
         }
 
@@ -2016,6 +1902,7 @@ namespace DiagnoseTool
 
         public void Dispose()
         {
+            SessionLifecycleService.MarkCleanExit("window_closed");
             _timer?.Stop();
             try
             {
