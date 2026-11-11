@@ -21,7 +21,7 @@ namespace DiagnoseTool
         public string Type { get; set; } = "DIAGNOSE_TOOL_DISCOVER";
 
         [JsonPropertyName("version")]
-        public string Version { get; set; } = "2.2.0";
+        public string Version { get; set; } = "2.3.0";
 
         [JsonPropertyName("machineName")]
         public string MachineName { get; set; } = Environment.MachineName;
@@ -244,7 +244,7 @@ namespace DiagnoseTool
                 var packet = new DiscoveryPacket
                 {
                     Type = "DIAGNOSE_TOOL_DISCOVER",
-                    Version = "2.2.0",
+                    Version = "2.3.0",
                     MachineName = Environment.MachineName,
                     OrderNumber = _getOrderNumber?.Invoke() ?? "",
                     Host = localIp,
@@ -408,7 +408,7 @@ namespace DiagnoseTool
                     machineName = Environment.MachineName,
                     systemModel = _getSystemModel?.Invoke() ?? "",
                     orderNumber = _getOrderNumber?.Invoke() ?? "",
-                    version = "2.2.0"
+                    version = "2.3.0"
                 };
 
                 string json = JsonSerializer.Serialize(reqObj);

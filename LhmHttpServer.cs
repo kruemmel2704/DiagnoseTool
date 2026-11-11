@@ -367,7 +367,7 @@ namespace DiagnoseTool
                         {
                             status = "online",
                             appName = "CPM DiagnoseTool",
-                            version = "2.2.0",
+                            version = "2.3.0",
                             port = Port,
                             machineName = Environment.MachineName,
                             orderNumber = _orderNumber,
@@ -563,7 +563,7 @@ namespace DiagnoseTool
 
             return new
             {
-                version = "2.2.0",
+                version = "2.3.0",
                 machineName = Environment.MachineName,
                 orderNumber = _orderNumber,
                 serverTime = DateTime.UtcNow.ToString("o"),
