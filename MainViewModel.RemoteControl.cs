@@ -597,6 +597,58 @@ namespace DiagnoseTool
                 new { isSleepPrevented = SleepManagementService.IsActive, isSupported = OperatingSystem.IsWindows() });
         }
 
+        // ------------------------------------------------------------------
+        // Sitzungsüberwachung / Absturzanalyse
+        // ------------------------------------------------------------------
+
+        private void InitializeSessionLifecycle()
+        {
+            SessionLifecycleService.OrderNumberProvider = () => _orderNumber;
+            SessionLifecycleService.ServerProvider = () =>
+            {
+                var st = _udpDiscoveryClient?.CurrentState;
+                if (st != null && !string.IsNullOrWhiteSpace(st.ServerHost))
+                    return (st.ServerHost, st.ServerPort);
+                return null;
+            };
+            SessionLifecycleService.ActivityProvider = () =>
+            {
+                var d = Diagnostics;
+                var b = BatteryInfo;
+                return new SessionActivitySnapshot
+                {
+                    IsCpuStressRunning = IsCpuStressRunning,
+                    IsRamStressRunning = IsRamStressRunning,
+                    IsGpuStressRunning = _launcherService.IsFurMarkRunning(),
+                    IsBatteryTestRunning = IsBatteryTestRunning,
+                    IsRecording = IsRecording,
+                    CpuTemp = d?.CpuAverageTemp,
+                    CpuLoad = d?.CpuAverageLoad,
+                    CpuPowerWatts = d != null && d.CpuPackagePower > 0 ? d.CpuPackagePower : (float?)null,
+                    GpuTemp = d?.GpuTemp,
+                    GpuHotSpotTemp = d != null && d.GpuHotSpotTemp > 0 ? d.GpuHotSpotTemp : (float?)null,
+                    GpuLoad = d?.GpuLoad,
+                    GpuPowerWatts = d != null && d.GpuPower > 0 ? d.GpuPower : (float?)null,
+                    RamPercent = d?.RamPercent,
+                    MainboardTemp = d != null && d.MotherboardTemp > 0 ? d.MotherboardTemp : (float?)null,
+                    BatteryPercent = b != null && b.IsPresent ? b.CurrentChargePercent : (double?)null,
+                    IsOnAcPower = b != null && b.IsPresent ? b.IsConnectedToAc : (bool?)null
+                };
+            };
+
+            SessionLifecycleService.CrashReportCreated += report =>
+            {
+                Dispatcher.UIThread.Post(() =>
+                    ShowStatus($"Letzte Sitzung nicht ordnungsgemäß beendet: {report.Headline} [{report.Severity}]",
+                        report.IsRealCrash && CrashSeverity.Rank(report.Severity) >= 3));
+            };
+
+            if (SessionLifecycleService.PreviousUncleanSession != null)
+            {
+                ShowStatus("Letzte Sitzung wurde nicht ordnungsgemäß beendet – Absturzanalyse der Ereignisanzeige läuft...", false);
+            }
+        }
+
         public RemoteActionResult AnnounceToHardwareCheck()
         {
             string order = OnUi(() => OrderNumber);

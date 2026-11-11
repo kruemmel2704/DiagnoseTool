@@ -155,6 +155,12 @@ namespace DiagnoseTool
                 Ep("/api/recording/export", "Aufzeichnung als CSV-Datei"),
                 Ep("/api/report/system", "System-Prüfbericht als PDF (aus der Werte-Aufzeichnung)"),
                 Ep("/api/report/battery", "Batterie-Prüfbericht als PDF"),
+                Ep("/api/session", "Aktuelle Sitzung (ID, Startzeit) und Info zur letzten unsauber beendeten Sitzung"),
+                Ep("/api/crash/last", "Absturzanalyse der letzten unsauber beendeten Sitzung (inkl. Ereignisanzeige-Auszug)"),
+                Ep("/api/crash/last/export", "Absturzanalyse als Textdatei"),
+                Ep("/api/eventlog", "Auszug aus der Windows-Ereignisanzeige (Query: hours, levels=1,2,3,4, logs=System,Application, max)"),
+                Ep("/api/eventlog/analysis", "Absturz-/Fehleranalyse der letzten N Stunden (Query: hours)"),
+                Ep("/api/eventlog/export", "Ereignisanzeige-Analyse als Textdatei (Query: hours)"),
             };
 
             var post = new List<object>
@@ -188,7 +194,8 @@ namespace DiagnoseTool
                 Ep("/api/control/ui/window", "Fenster steuern", "{ action: minimize|maximize|restore|focus }"),
                 Ep("/api/control/power/sleep", "Standby/Ruhezustand blockieren oder freigeben", "{ preventSleep: bool }"),
                 Ep("/api/control/hardware-check/announce", "Erneut bei Hardware-Check anmelden (HTTP + UDP)"),
-                Ep("/api/control/app/exit", "DiagnoseTool beenden (Aliase: close, shutdown)"),
+                Ep("/api/control/crash/resend", "Letzten Absturzbericht erneut an Hardware-Check senden"),
+                Ep("/api/control/app/exit", "DiagnoseTool ordnungsgemäß beenden (Hardware-Check zeigt 'Programm geschlossen')"),
             };
 
             return new

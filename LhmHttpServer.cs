@@ -176,6 +176,8 @@ namespace DiagnoseTool
         public bool IsServerConnected { get; set; }
         public string ServerHost { get; set; } = "";
         public int ServerPort { get; set; } = 5085;
+        public string SessionId { get; set; } = SessionLifecycleService.SessionId;
+        public string SessionStartedUtc { get; set; } = SessionLifecycleService.SessionStartedUtc.ToString("o");
     }
 
     public partial class LhmHttpServer : IDisposable
@@ -373,6 +375,9 @@ namespace DiagnoseTool
                             machineName = Environment.MachineName,
                             orderNumber = _orderNumber,
                             serverTime = DateTime.UtcNow.ToString("o"),
+                            sessionId = SessionLifecycleService.SessionId,
+                            sessionStartedUtc = SessionLifecycleService.SessionStartedUtc.ToString("o"),
+                            previousSessionUnclean = SessionLifecycleService.PreviousUncleanSession != null,
                             serverConnection = new
                             {
                                 isConnected = stress?.IsServerConnected ?? false,

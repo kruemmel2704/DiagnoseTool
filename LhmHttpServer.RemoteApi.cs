@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -31,6 +32,11 @@ namespace DiagnoseTool
             if (path == "/api/battery")
             {
                 SendResponseJson(resp, (object)_batteryInfoProvider?.Invoke() ?? new { isPresent = false });
+                return true;
+            }
+
+            if (TryHandleCrashAndEventLogGet(req, resp, path))
+            {
                 return true;
             }
 
@@ -97,8 +103,148 @@ namespace DiagnoseTool
             return false;
         }
 
+        private static readonly JsonSerializerOptions CamelJsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+            NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowNamedFloatingPointLiterals
+        };
+
+        private static void SendCamelJson(HttpListenerResponse resp, object data, int statusCode = 200)
+        {
+            byte[] buffer = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(data, CamelJsonOptions));
+            resp.StatusCode = statusCode;
+            resp.ContentType = "application/json; charset=utf-8";
+            resp.ContentLength64 = buffer.Length;
+            resp.OutputStream.Write(buffer, 0, buffer.Length);
+        }
+
+        private static int[] ParseLevels(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return new[] { 1, 2, 3, 4 };
+            var list = new System.Collections.Generic.List<int>();
+            foreach (var part in value.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                switch (part.ToLowerInvariant())
+                {
+                    case "critical": case "kritisch": list.Add(1); break;
+                    case "error": case "fehler": list.Add(2); break;
+                    case "warning": case "warnung": list.Add(3); break;
+                    case "info": case "information": list.Add(4); break;
+                    default:
+                        if (int.TryParse(part, out int n) && n >= 0 && n <= 5) list.Add(n);
+                        break;
+                }
+            }
+            return list.Count > 0 ? list.ToArray() : new[] { 1, 2, 3, 4 };
+        }
+
+        /// <summary>
+        /// Sitzung, Absturzbericht und Windows-Ereignisanzeige (unabhängig von der Oberfläche verfügbar).
+        /// </summary>
+        private bool TryHandleCrashAndEventLogGet(HttpListenerRequest req, HttpListenerResponse resp, string path)
+        {
+            switch (path)
+            {
+                case "/api/session":
+                    SendCamelJson(resp, SessionLifecycleService.GetSessionInfo());
+                    return true;
+
+                case "/api/crash/last":
+                case "/api/crash-report":
+                {
+                    var report = SessionLifecycleService.LastCrashReport;
+                    if (report == null)
+                    {
+                        SendCamelJson(resp, new { success = false, error = "Es liegt kein Absturzbericht vor (letzte Sitzung wurde ordnungsgemäß beendet)." }, 404);
+                    }
+                    else
+                    {
+                        SendCamelJson(resp, report);
+                    }
+                    return true;
+                }
+
+                case "/api/crash/last/export":
+                {
+                    var report = SessionLifecycleService.LastCrashReport;
+                    SendResponseFile(resp, report == null
+                        ? new RemoteFileResult { Error = "Es liegt kein Absturzbericht vor." }
+                        : new RemoteFileResult
+                        {
+                            Content = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(report.ToText())).ToArray(),
+                            FileName = $"Absturzanalyse_{Environment.MachineName}_{report.CreatedUtc.ToLocalTime():yyyyMMdd_HHmmss}.txt",
+                            ContentType = "text/plain; charset=utf-8"
+                        });
+                    return true;
+                }
+
+                case "/api/eventlog":
+                case "/api/eventlog/events":
+                {
+                    int hours = Math.Clamp(ParseInt(req.QueryString["hours"]) ?? 24, 1, 24 * 30);
+                    int max = Math.Clamp(ParseInt(req.QueryString["max"]) ?? 2000, 1, 10000);
+                    var levels = ParseLevels(req.QueryString["levels"]);
+                    var logs = string.IsNullOrWhiteSpace(req.QueryString["logs"])
+                        ? EventLogAnalyzer.DefaultLogs
+                        : req.QueryString["logs"].Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+                    var errors = new System.Collections.Generic.List<string>();
+                    var now = DateTime.UtcNow;
+                    var events = EventLogAnalyzer.ReadAll(logs, now.AddHours(-hours), now, levels, max, errors, out bool truncated);
+                    SendCamelJson(resp, new
+                    {
+                        machineName = Environment.MachineName,
+                        fromUtc = now.AddHours(-hours),
+                        toUtc = now,
+                        logs,
+                        levels,
+                        count = events.Count,
+                        truncated,
+                        errors,
+                        events
+                    });
+                    return true;
+                }
+
+                case "/api/eventlog/analysis":
+                {
+                    int hours = ParseInt(req.QueryString["hours"]) ?? 24;
+                    SendCamelJson(resp, EventLogAnalyzer.BuildAdhocReport(hours));
+                    return true;
+                }
+
+                case "/api/eventlog/export":
+                {
+                    int hours = ParseInt(req.QueryString["hours"]) ?? 24;
+                    var report = EventLogAnalyzer.BuildAdhocReport(hours);
+                    SendResponseFile(resp, new RemoteFileResult
+                    {
+                        Content = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(report.ToText())).ToArray(),
+                        FileName = $"Ereignisanzeige_{Environment.MachineName}_{DateTime.Now:yyyyMMdd_HHmmss}.txt",
+                        ContentType = "text/plain; charset=utf-8"
+                    });
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private bool TryHandleExtendedPost(HttpListenerRequest req, HttpListenerResponse resp, string path, JsonElement? root)
         {
+            if (path.TrimEnd('/') == "/api/control/crash/resend")
+            {
+                var (ok, target) = SessionLifecycleService.ResendLastCrashReportAsync().GetAwaiter().GetResult();
+                SendCamelJson(resp, new
+                {
+                    success = ok,
+                    action = "crash_resend",
+                    message = ok ? $"Absturzbericht an {target} gesendet." : "Kein Absturzbericht vorhanden oder Hardware-Check nicht erreichbar.",
+                    error = ok ? null : "Senden fehlgeschlagen"
+                }, ok ? 200 : 409);
+                return true;
+            }
+
             var rc = RemoteControl;
             if (rc == null)
             {

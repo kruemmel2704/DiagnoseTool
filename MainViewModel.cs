@@ -142,6 +142,9 @@ namespace DiagnoseTool
             _timer.Tick += TimerTick;
             _timer.Start();
 
+            // Sitzungsüberwachung mit Kontext versorgen (für Absturzanalyse & Abmeldung bei Hardware-Check)
+            InitializeSessionLifecycle();
+
             // Start API Server and UDP autodiscovery immediately on application start
             StartOnlineMonitoring();
             StartUdpDiscovery();
@@ -899,6 +902,7 @@ namespace DiagnoseTool
                 _lhmHttpServer.RemoteControl = this;
                 _lhmHttpServer.OnExitApplication = () =>
                 {
+                    SessionLifecycleService.MarkCleanExit("remote_exit");
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                     {
                         if (Avalonia.Application.Current?.ApplicationLifetime is Avalonia.Controls.ApplicationLifetimes.IClassicDesktopStyleApplicationLifetime desktop)
@@ -976,7 +980,9 @@ namespace DiagnoseTool
                 RecordedSamplesCount = RecordedSamplesCount,
                 IsServerConnected = IsHardwareCheckConnected,
                 ServerHost = HardwareCheckServerInfo,
-                ServerPort = 5085
+                ServerPort = 5085,
+                SessionId = SessionLifecycleService.SessionId,
+                SessionStartedUtc = SessionLifecycleService.SessionStartedUtc.ToString("o")
             };
         }
 
@@ -2064,6 +2070,7 @@ namespace DiagnoseTool
 
         public void Dispose()
         {
+            SessionLifecycleService.MarkCleanExit("window_closed");
             _timer?.Stop();
             try
             {
