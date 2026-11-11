@@ -29,7 +29,8 @@ mkdir -p ./publish/universal
 lipo -create ./publish/osx-arm64/DiagnoseTool ./publish/osx-x64/DiagnoseTool -output ./publish/universal/DiagnoseTool
 cp ./publish/universal/DiagnoseTool "$APP_DIR"/Contents/MacOS/
 
-# Merge all architecture-specific dylibs
+# Merge all architecture-specific dylibs (bei Single-File-Builds sind sie eingebettet -> Schleife entfällt)
+shopt -s nullglob
 for arm_dylib in ./publish/osx-arm64/*.dylib; do
     filename=$(basename "$arm_dylib")
     x64_dylib="./publish/osx-x64/$filename"
@@ -52,10 +53,16 @@ for arm_dylib in ./publish/osx-arm64/*.dylib; do
         cp "$arm_dylib" "$APP_DIR"/Contents/MacOS/
     fi
 done
+shopt -u nullglob
+
+# Version aus DiagnoseTool.csproj übernehmen
+APP_VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' DiagnoseTool.csproj | head -n1)
+APP_VERSION=${APP_VERSION:-0.0.0}
+echo "App version: $APP_VERSION"
 
 # 4. Create Info.plist
 echo "Creating Info.plist..."
-cat << 'EOF' > "$APP_DIR"/Contents/Info.plist
+cat << EOF > "$APP_DIR"/Contents/Info.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -73,11 +80,11 @@ cat << 'EOF' > "$APP_DIR"/Contents/Info.plist
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.5.0</string>
+    <string>${APP_VERSION}</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleVersion</key>
-    <string>2.5.0</string>
+    <string>${APP_VERSION}</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.12</string>
     <key>NSPrincipalClass</key>
