@@ -178,7 +178,7 @@ namespace DiagnoseTool
         public int ServerPort { get; set; } = 5085;
     }
 
-    public class LhmHttpServer : IDisposable
+    public partial class LhmHttpServer : IDisposable
     {
         private HttpListener _listener;
         private CancellationTokenSource _cts;
@@ -203,6 +203,7 @@ namespace DiagnoseTool
         public Action OnStopRecording { get; set; }
         public Action<string> OnSetOrderNumber { get; set; }
         public Action OnExitApplication { get; set; }
+        public IDiagnoseRemoteControl RemoteControl { get; set; }
 
         public bool IsRunning { get; private set; }
         public int Port { get; } = 8085;
@@ -367,7 +368,7 @@ namespace DiagnoseTool
                         {
                             status = "online",
                             appName = "CPM DiagnoseTool",
-                            version = "2.3.0",
+                            version = AppInfo.Version,
                             port = Port,
                             machineName = Environment.MachineName,
                             orderNumber = _orderNumber,
@@ -393,10 +394,10 @@ namespace DiagnoseTool
                         var stress = StressStatusProvider?.Invoke() ?? new TelemetryStressStatus();
                         SendResponseJson(resp, stress);
                     }
-                    else
+                    else if (!TryHandleExtendedGet(req, resp, path))
                     {
                         resp.StatusCode = (int)HttpStatusCode.NotFound;
-                        SendResponseJson(resp, new { error = "Endpoint not found" }, 404);
+                        SendResponseJson(resp, new { error = "Endpoint not found", hint = "GET /api listet alle verfügbaren Endpunkte" }, 404);
                     }
                 }
                 // 2. POST Endpoints (Control Actions)
@@ -517,10 +518,10 @@ namespace DiagnoseTool
                             OnExitApplication?.Invoke();
                         });
                     }
-                    else
+                    else if (!TryHandleExtendedPost(req, resp, path, root))
                     {
                         resp.StatusCode = (int)HttpStatusCode.NotFound;
-                        SendResponseJson(resp, new { error = "Action endpoint not found" }, 404);
+                        SendResponseJson(resp, new { error = "Action endpoint not found", hint = "GET /api listet alle verfügbaren Endpunkte" }, 404);
                     }
                 }
                 else
@@ -532,7 +533,11 @@ namespace DiagnoseTool
             catch (Exception ex)
             {
                 Debug.WriteLine($"[LhmHttpServer] Error serving request: {ex.Message}");
-                try { resp.StatusCode = (int)HttpStatusCode.InternalServerError; } catch { }
+                try { SendResponseJson(resp, new { success = false, error = ex.Message }, 500); }
+                catch
+                {
+                    try { resp.StatusCode = (int)HttpStatusCode.InternalServerError; } catch { }
+                }
             }
             finally
             {
@@ -540,13 +545,16 @@ namespace DiagnoseTool
             }
         }
 
+        private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+            NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals
+        };
+
         private static void SendResponseJson(HttpListenerResponse resp, object data, int statusCode = 200)
         {
-            string json = JsonSerializer.Serialize(data, new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
+            string json = JsonSerializer.Serialize(data, JsonOptions);
             byte[] buffer = Encoding.UTF8.GetBytes(json);
             resp.StatusCode = statusCode;
             resp.ContentType = "application/json; charset=utf-8";
@@ -563,7 +571,7 @@ namespace DiagnoseTool
 
             return new
             {
-                version = "2.3.0",
+                version = AppInfo.Version,
                 machineName = Environment.MachineName,
                 orderNumber = _orderNumber,
                 serverTime = DateTime.UtcNow.ToString("o"),

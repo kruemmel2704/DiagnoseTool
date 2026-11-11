@@ -73,11 +73,11 @@ cat << 'EOF' > "$APP_DIR"/Contents/Info.plist
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.3.0</string>
+    <string>2.4.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleVersion</key>
-    <string>2.3.0</string>
+    <string>2.4.0</string>
     <key>LSMinimumSystemVersion</key>
     <string>10.12</string>
     <key>NSPrincipalClass</key>

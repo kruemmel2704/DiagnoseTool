@@ -7,7 +7,7 @@ using Microsoft.Win32;
 
 namespace DiagnoseTool
 {
-    public class MainViewModel : ViewModelBase, IDisposable
+    public partial class MainViewModel : ViewModelBase, IDisposable, IDiagnoseRemoteControl
     {
         private readonly HardwareMonitorService _monitorService;
         private readonly ToolLauncherService _launcherService;
@@ -35,6 +35,8 @@ namespace DiagnoseTool
         private SystemInfo _systemInfo;
         private bool _isBatteryTestRunning = false;
         private TimeSpan _batteryTestRemainingTime;
+        private TimeSpan _batteryTestTotalDuration = TimeSpan.FromMinutes(30);
+        private DateTime _batteryTestStartTime = DateTime.Now;
         private string _batteryTestRemainingDisplay = "30:00";
         private double _batteryTestStartPercent;
         private double _batteryTestCurrentPercent;
@@ -401,7 +403,7 @@ namespace DiagnoseTool
 
         public RelayCommand StartHWiNFOCommand { get; }
 
-        public string AdminStatusText => IsAdmin ? "v2.3 | Admin Privileges Active" : "v2.3 | No Admin Privileges (Restricted)";
+        public string AdminStatusText => IsAdmin ? $"v{AppInfo.ShortVersion} | Admin Privileges Active" : $"v{AppInfo.ShortVersion} | No Admin Privileges (Restricted)";
 
         public bool IsRecording
         {
@@ -603,7 +605,7 @@ namespace DiagnoseTool
                 BatteryTestCurrentPercent = BatteryInfo.IsPresent ? BatteryInfo.CurrentChargePercent : 0;
 
                 // Log every 60 seconds (when seconds is 0, except at the exact start duration)
-                if (_batteryTestRemainingTime.Seconds == 0 && _batteryTestRemainingTime.TotalSeconds < 1800)
+                if (_batteryTestRemainingTime.Seconds == 0 && _batteryTestRemainingTime.TotalSeconds < _batteryTestTotalDuration.TotalSeconds)
                 {
                     double currentDrop = BatteryTestStartPercent - BatteryTestCurrentPercent;
                     if (currentDrop < 0) currentDrop = 0;
@@ -770,6 +772,11 @@ namespace DiagnoseTool
 
         private void ExecuteRunRepair(string key)
         {
+            RunRepairCore(key, out _);
+        }
+
+        private bool RunRepairCore(string key, out string message)
+        {
             string commandArgs = "";
             string description = "";
 
@@ -792,8 +799,9 @@ namespace DiagnoseTool
                     description = "Chkdsk C: (Read-only)";
                     break;
                 default:
-                    ShowStatus("Unknown repair command", true);
-                    return;
+                    message = "Unknown repair command";
+                    ShowStatus(message, true);
+                    return false;
             }
 
             try
@@ -806,11 +814,15 @@ namespace DiagnoseTool
                     Verb = "runas"
                 };
                 System.Diagnostics.Process.Start(startInfo);
-                ShowStatus($"Started {description} in cmd window.", false);
+                message = $"Started {description} in cmd window.";
+                ShowStatus(message, false);
+                return true;
             }
             catch (Exception ex)
             {
-                ShowStatus($"Failed to start repair command: {ex.Message}", true);
+                message = $"Failed to start repair command: {ex.Message}";
+                ShowStatus(message, true);
+                return false;
             }
         }
 
@@ -884,6 +896,7 @@ namespace DiagnoseTool
                 _lhmHttpServer.OnStartRecording = (orderNo) => RemoteStartRecording(orderNo);
                 _lhmHttpServer.OnStopRecording = () => RemoteStopRecording();
                 _lhmHttpServer.OnSetOrderNumber = (orderNo) => RemoteSetOrderNumber(orderNo);
+                _lhmHttpServer.RemoteControl = this;
                 _lhmHttpServer.OnExitApplication = () =>
                 {
                     Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -1249,26 +1262,43 @@ namespace DiagnoseTool
 
         private void ExecuteStartBatteryTest()
         {
+            StartBatteryTestCore(null, true);
+        }
+
+        private bool StartBatteryTestCore(int? durationMinutes, bool openVideo)
+        {
+            if (IsBatteryTestRunning) return true;
+
             var info = BatteryService.GetBatteryInfo(Diagnostics?.BatteryData);
             if (!info.IsPresent)
             {
                 ShowStatus("Keine Batterie erkannt. Der Stresstest kann nur auf Laptops durchgeführt werden.", true);
-                return;
+                return false;
             }
+
+            int minutes = durationMinutes.HasValue && durationMinutes.Value > 0 ? Math.Min(durationMinutes.Value, 600) : 30;
+            _batteryTestTotalDuration = TimeSpan.FromMinutes(minutes);
+            _batteryTestStartTime = DateTime.Now;
 
             BatteryTestLog.Clear();
             BatteryTestStartPercent = info.CurrentChargePercent;
             BatteryTestCurrentPercent = info.CurrentChargePercent;
-            _batteryTestRemainingTime = TimeSpan.FromMinutes(30);
-            BatteryTestRemainingDisplay = "30:00";
+            _batteryTestRemainingTime = _batteryTestTotalDuration;
+            BatteryTestRemainingDisplay = string.Format("{0:D2}:00", minutes);
             BatteryTestCompleted = false;
             BatteryTestResults = null;
             IsBatteryTestRunning = true;
 
-            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Batterietest gestartet bei {1}% Ladung.", DateTime.Now, BatteryTestStartPercent));
+            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Batterietest gestartet bei {1}% Ladung (Dauer: {2} Min.).", DateTime.Now, BatteryTestStartPercent, minutes));
             if (info.IsConnectedToAc)
             {
                 BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Warnung: Ladekabel ist angeschlossen. Für verlässliche Testergebnisse bitte das Kabel trennen!", DateTime.Now));
+            }
+
+            if (!openVideo)
+            {
+                ShowStatus("Akkutest gestartet (ohne Video-Last).", false);
+                return true;
             }
 
             try
@@ -1282,6 +1312,7 @@ namespace DiagnoseTool
                 BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Fehler beim Starten des Browsers: {1}", DateTime.Now, ex.Message));
                 ShowStatus(string.Format("Fehler beim Starten des Browsers: {0}", ex.Message), true);
             }
+            return true;
         }
 
         private void OpenUrl(string url)
@@ -1327,14 +1358,15 @@ namespace DiagnoseTool
             double drain = BatteryTestStartPercent - BatteryTestCurrentPercent;
             if (drain < 0) drain = 0;
 
-            TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
+            TimeSpan elapsed = _batteryTestTotalDuration.Subtract(_batteryTestRemainingTime);
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
             double hours = elapsed.TotalHours;
             double dischargeRate = hours > 0 ? drain / hours : 0;
             double estLife = (dischargeRate > 0 && BatteryTestCurrentPercent > 0) ? BatteryTestCurrentPercent / dischargeRate : 0;
 
             string statusText = completed ? "vollständig beendet" : "abgebrochen";
             BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest {1} nach {2} Min. & {3} Sek.", 
-                DateTime.Now, statusText, elapsed.Minutes, elapsed.Seconds));
+                DateTime.Now, statusText, (int)elapsed.TotalMinutes, elapsed.Seconds));
             BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Endladung: {1}% | Gesamtverbrauch: {2}%", 
                 DateTime.Now, BatteryTestCurrentPercent, drain));
 
@@ -1342,10 +1374,10 @@ namespace DiagnoseTool
             {
                 BatteryTestResults = string.Format(
                     "Testergebnis:\n" +
-                    "• Batterie-Entladung: {0:F0}% in 30 Minuten\n" +
+                    "• Batterie-Entladung: {0:F0}% in {3:F0} Minuten\n" +
                     "• Hochgerechnete Entladungsrate: {1:F1}% pro Stunde\n" +
                     "• Geschätzte Restlaufzeit unter Last: {2:F1} Stunden",
-                    drain, dischargeRate, estLife);
+                    drain, dischargeRate, estLife, _batteryTestTotalDuration.TotalMinutes);
                 ShowStatus("Akkutest erfolgreich beendet!", false);
             }
             else
@@ -1355,7 +1387,7 @@ namespace DiagnoseTool
                     "• Testdauer: {0:D2} Min. {1:D2} Sek.\n" +
                     "• Entladung: {2:F0}%\n" +
                     "• Laufzeitprognose ungenau aufgrund des Abbruchs.",
-                    elapsed.Minutes, elapsed.Seconds, drain);
+                    (int)elapsed.TotalMinutes, elapsed.Seconds, drain);
                 ShowStatus("Akkutest abgebrochen.", false);
             }
         }
@@ -1384,26 +1416,7 @@ namespace DiagnoseTool
                         try
                         {
                             var filePath = result.Path.LocalPath;
-                            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
-                            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
-                            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
-                            
-                            TimeSpan elapsed = TimeSpan.FromMinutes(30).Subtract(_batteryTestRemainingTime);
-                            DateTime start = DateTime.Now.Subtract(elapsed);
-
-                            PdfReportService.GenerateBatteryReport(
-                                filePath,
-                                cpu,
-                                gpu,
-                                ram,
-                                SystemInfo,
-                                BatteryInfo,
-                                start,
-                                DateTime.Now,
-                                BatteryTestStartPercent,
-                                BatteryTestCurrentPercent,
-                                new List<string>(BatteryTestLog)
-                            );
+                            WriteBatteryReport(filePath);
 
                             ShowStatus("PDF-Batteriebericht erfolgreich gespeichert!", false);
                         }
@@ -1414,6 +1427,31 @@ namespace DiagnoseTool
                     }
                 }
             }
+        }
+
+        private void WriteBatteryReport(string filePath)
+        {
+            string cpu = Diagnostics != null ? Diagnostics.CpuName : "Unknown CPU";
+            string gpu = Diagnostics != null ? Diagnostics.GpuName : "Unknown GPU";
+            string ram = Diagnostics != null ? Diagnostics.RamUsageDisplay : "Unknown RAM";
+
+            TimeSpan elapsed = _batteryTestTotalDuration.Subtract(_batteryTestRemainingTime);
+            if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
+            DateTime start = IsBatteryTestRunning || BatteryTestCompleted ? _batteryTestStartTime : DateTime.Now.Subtract(elapsed);
+
+            PdfReportService.GenerateBatteryReport(
+                filePath,
+                cpu,
+                gpu,
+                ram,
+                SystemInfo,
+                BatteryInfo,
+                start,
+                DateTime.Now,
+                BatteryTestStartPercent,
+                BatteryTestCurrentPercent,
+                new List<string>(BatteryTestLog)
+            );
         }
 
         private static bool IsRunningAsAdmin()
@@ -1540,11 +1578,17 @@ namespace DiagnoseTool
 
         private void ExecuteStartHWiNFO()
         {
+            StartHWiNFOCore(out _);
+        }
+
+        private bool StartHWiNFOCore(out string message)
+        {
             string hwinfoPath = GetHWiNFOPath();
             if (string.IsNullOrEmpty(hwinfoPath))
             {
-                ShowStatus("HWiNFO64.exe nicht im Tools-Ordner gefunden.", true);
-                return;
+                message = "HWiNFO64.exe nicht im Tools-Ordner gefunden.";
+                ShowStatus(message, true);
+                return false;
             }
 
             try
@@ -1560,11 +1604,15 @@ namespace DiagnoseTool
                     UseShellExecute = true
                 };
                 System.Diagnostics.Process.Start(startInfo);
-                ShowStatus("HWiNFO64 im Hintergrund gestartet und konfiguriert.", false);
+                message = "HWiNFO64 im Hintergrund gestartet und konfiguriert.";
+                ShowStatus(message, false);
+                return true;
             }
             catch (Exception ex)
             {
-                ShowStatus($"Fehler beim Starten von HWiNFO: {ex.Message}", true);
+                message = $"Fehler beim Starten von HWiNFO: {ex.Message}";
+                ShowStatus(message, true);
+                return false;
             }
         }
 
