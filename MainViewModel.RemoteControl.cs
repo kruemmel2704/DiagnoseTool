@@ -97,9 +97,6 @@ namespace DiagnoseTool
             adminStatusText = AdminStatusText,
             hasDriverError = HasDriverError,
             isLhmDriverBlocked = IsLhmDriverBlocked,
-            isHWiNFOFallbackActive = IsHWiNFOFallbackActive,
-            isHWiNFOPortableFound = IsHWiNFOPortableFound,
-            isHWiNFORunning = IsHWiNFORunning(),
             isSleepPrevented = SleepManagementService.IsActive,
             orderNumber = OrderNumber,
             onlineMonitoring = new
@@ -142,16 +139,6 @@ namespace DiagnoseTool
             isWindows = OperatingSystem.IsWindows(),
             commands = RepairCommands.Select(c => new { key = c.Key, description = c.Description, command = c.Command }).ToList()
         };
-
-        public object GetHWiNFOState() => OnUi(() => new
-        {
-            isPortableFound = IsHWiNFOPortableFound,
-            path = GetHWiNFOPath(),
-            isRunning = IsHWiNFORunning(),
-            isFallbackActive = IsHWiNFOFallbackActive,
-            isLhmDriverBlocked = IsLhmDriverBlocked,
-            hasDriverError = HasDriverError
-        });
 
         public object GetCpuStressDetails() => OnUi(() => new
         {
@@ -313,7 +300,7 @@ namespace DiagnoseTool
         });
 
         // ------------------------------------------------------------------
-        // Reparatur / HWiNFO
+        // Reparatur
         // ------------------------------------------------------------------
 
         public RemoteActionResult RunRepair(string key) => OnUi(() =>
@@ -327,12 +314,6 @@ namespace DiagnoseTool
             bool ok = RunRepairCore(normalized, out string message);
             return ok ? RemoteActionResult.Ok("repair", message, new { key = normalized })
                       : RemoteActionResult.Fail("repair", message, new { key = normalized });
-        });
-
-        public RemoteActionResult StartHWiNFO() => OnUi(() =>
-        {
-            bool ok = StartHWiNFOCore(out string message);
-            return ok ? RemoteActionResult.Ok("hwinfo_start", message) : RemoteActionResult.Fail("hwinfo_start", message);
         });
 
         // ------------------------------------------------------------------

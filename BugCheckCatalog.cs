@@ -25,13 +25,13 @@ namespace DiagnoseTool
                     new[] { "MemTest86 / Windows-Speicherdiagnose über mehrere Durchläufe ausführen", "XMP/EXPO deaktivieren und auf JEDEC-Standardtakt testen", "Module einzeln testen, Steckplätze tauschen, Kontakte prüfen" }),
                 [Cpu] = (
                     new[] { "Instabiler CPU-Takt/Undervolt/Übertaktung", "CPU-Spannungsversorgung (VRM) überlastet oder überhitzt", "Defekter Prozessor (Machine-Check-Fehler)" },
-                    new[] { "BIOS auf Standardwerte zurücksetzen (Übertaktung/Undervolt entfernen)", "BIOS/Microcode aktualisieren", "CPU-Stresstest (OCCT/Prime95) mit Temperaturüberwachung wiederholen", "Bei wiederholten Machine-Check-Fehlern CPU tauschen/reklamieren" }),
+                    new[] { "BIOS auf Standardwerte zurücksetzen (Übertaktung/Undervolt entfernen)", "BIOS/Microcode aktualisieren", "Integrierten CPU-Stresstest mit Temperaturüberwachung wiederholen", "Bei wiederholten Machine-Check-Fehlern CPU tauschen/reklamieren" }),
                 [Gpu] = (
                     new[] { "Grafiktreiber abgestürzt oder fehlerhaft", "Instabile GPU-Übertaktung bzw. Werks-OC", "Überhitzung der Grafikkarte oder unzureichende Stromversorgung (PCIe-Stecker/Netzteil)", "Defekter Grafikspeicher (VRAM)" },
-                    new[] { "Grafiktreiber mit DDU vollständig entfernen und aktuelle WHQL-Version installieren", "GPU-Takt auf Referenz setzen und FurMark/OCCT-GPU erneut testen", "PCIe-Stromkabel und Netzteilleistung prüfen", "Temperaturen und Lüfter der GPU kontrollieren" }),
+                    new[] { "Grafiktreiber mit DDU vollständig entfernen und aktuelle WHQL-Version installieren", "GPU-Takt auf Referenz setzen und FurMark-GPU-Test erneut durchführen", "PCIe-Stromkabel und Netzteilleistung prüfen", "Temperaturen und Lüfter der GPU kontrollieren" }),
                 [Storage] = (
                     new[] { "Defekte Sektoren oder ausfallende SSD/HDD", "Fehlerhaftes SATA-/NVMe-Kabel bzw. Steckplatz", "Veraltete SSD-Firmware oder Controllertreiber" },
-                    new[] { "SMART-Werte prüfen (z.B. Victoria/CrystalDiskInfo)", "chkdsk /r ausführen, Datensicherung anlegen", "SSD-Firmware und Storage-Treiber aktualisieren, Kabel/Steckplatz tauschen" }),
+                    new[] { "SMART-Werte des Datenträgers prüfen", "chkdsk /r ausführen, Datensicherung anlegen", "SSD-Firmware und Storage-Treiber aktualisieren, Kabel/Steckplatz tauschen" }),
                 [Driver] = (
                     new[] { "Fehlerhafter Kernel-Treiber (z.B. Netzwerk, Chipsatz, Grafik, Antivirus)", "Veraltete oder inkompatible Treiberversion", "Selten: instabiler RAM, der Treiberdaten beschädigt" },
                     new[] { "Speicherabbild (MEMORY.DMP/Minidump) mit WinDbg/BlueScreenView auswerten, um den Treiber zu identifizieren", "Chipsatz-, Grafik-, Netzwerk- und Storage-Treiber aktualisieren", "Kürzlich installierte Software/Treiber entfernen", "RAM-Test zur Absicherung durchführen" }),

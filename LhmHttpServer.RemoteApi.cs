@@ -61,9 +61,6 @@ namespace DiagnoseTool
                 case "/api/repair":
                     SendResponseJson(resp, rc.GetRepairCommands());
                     return true;
-                case "/api/hwinfo":
-                    SendResponseJson(resp, rc.GetHWiNFOState());
-                    return true;
                 case "/api/stress/cpu":
                     SendResponseJson(resp, rc.GetCpuStressDetails());
                     return true;
@@ -291,9 +288,6 @@ namespace DiagnoseTool
                 case "tools/refresh":
                 case "tools/scan":
                     result = rc.RefreshTools();
-                    break;
-                case "hwinfo/start":
-                    result = rc.StartHWiNFO();
                     break;
                 case "ui/tab":
                     result = rc.SelectTab(GetStringProperty(root, "tab", "index"));

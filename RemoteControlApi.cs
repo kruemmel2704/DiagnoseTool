@@ -82,14 +82,13 @@ namespace DiagnoseTool
         object GetDiagnosticsSnapshot();
         object GetTools();
         object GetRepairCommands();
-        object GetHWiNFOState();
         object GetCpuStressDetails();
         object GetRamStressDetails();
         object GetGpuStressDetails();
         object GetBatteryTestDetails();
         object GetRecordingDetails(bool includeSamples, int? lastSamples);
 
-        // --- Tools (OCCT, FurMark, Prime95, Victoria) ---
+        // --- Tools (FurMark) ---
         RemoteActionResult LaunchTool(string key);
         RemoteActionResult SetToolPath(string key, string path);
         RemoteActionResult ClearToolPath(string key);
@@ -97,9 +96,6 @@ namespace DiagnoseTool
 
         // --- Reparatur (SFC, DISM, CHKDSK) ---
         RemoteActionResult RunRepair(string key);
-
-        // --- HWiNFO Fallback-Sensorik ---
-        RemoteActionResult StartHWiNFO();
 
         // --- CPU/RAM Stresstest Voreinstellungen ---
         RemoteActionResult ConfigureCpuStress(int? threads, int? durationIndex);
@@ -141,10 +137,9 @@ namespace DiagnoseTool
                 Ep("/api/diagnostics", "Vollständiger Rohdaten-Snapshot aller Sensoren"),
                 Ep("/api/system", "System-/Mainboard-Informationen inkl. Seriennummern"),
                 Ep("/api/battery", "Akku-Informationen (Kapazität, Gesundheit, Ladezustand)"),
-                Ep("/api/app/state", "Zustand der Oberfläche (Tab, Statusmeldung, Admin, Treiber, HWiNFO, Energiesparmodus)"),
-                Ep("/api/tools", "Diagnose-Tools (OCCT, FurMark, Prime95, Victoria) mit Pfad & Verfügbarkeit"),
+                Ep("/api/app/state", "Zustand der Oberfläche (Tab, Statusmeldung, Admin, Treiber, Energiesparmodus)"),
+                Ep("/api/tools", "FurMark (GPU-Stresstest) mit Pfad & Verfügbarkeit"),
                 Ep("/api/repair", "Verfügbare Reparaturbefehle (sfc, dism_check, dism_restore, chkdsk)"),
-                Ep("/api/hwinfo", "HWiNFO Status (gefunden, läuft, Fallback aktiv)"),
                 Ep("/api/stress", "Kompakter Stresstest-Status (Alias: /api/control/status)"),
                 Ep("/api/stress/cpu", "CPU-Stresstest inkl. Log, Ergebnis und Einstellungen"),
                 Ep("/api/stress/ram", "RAM-Stresstest inkl. Log, Zyklen, Fehler und Einstellungen"),
@@ -183,12 +178,11 @@ namespace DiagnoseTool
                 Ep("/api/control/recording/stop", "Werte-Aufzeichnung stoppen"),
                 Ep("/api/control/recording/clear", "Aufgezeichnete Messpunkte verwerfen"),
                 Ep("/api/control/order", "Auftragsnummer setzen", "{ orderNumber }"),
-                Ep("/api/control/tools/refresh", "Laufwerke & USB-Sticks nach Tools durchsuchen"),
-                Ep("/api/control/tools/{key}/launch", "Tool starten (OCCT, FurMark, Prime95, Victoria)"),
+                Ep("/api/control/tools/refresh", "FurMark erneut suchen (eingebettet, USB, manueller Pfad)"),
+                Ep("/api/control/tools/{key}/launch", "FurMark starten (Schlüssel: FurMark)"),
                 Ep("/api/control/tools/{key}/path", "Manuellen Tool-Pfad setzen", "{ path }"),
                 Ep("/api/control/tools/{key}/clear-path", "Manuellen Tool-Pfad zurücksetzen"),
                 Ep("/api/control/repair/{key}", "Reparaturbefehl starten (sfc, dism_check, dism_restore, chkdsk)"),
-                Ep("/api/control/hwinfo/start", "HWiNFO64 starten und Sensoren konfigurieren"),
                 Ep("/api/control/ui/tab", "Tab in der Oberfläche wählen", "{ tab: 0-6 | dashboard|tools|gpu|repair|info|battery|cpu|ram }"),
                 Ep("/api/control/ui/status", "Statusmeldung in der Oberfläche anzeigen", "{ message, isError? }"),
                 Ep("/api/control/ui/window", "Fenster steuern", "{ action: minimize|maximize|restore|focus }"),

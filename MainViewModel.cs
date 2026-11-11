@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Threading;
-using Microsoft.Win32;
 
 namespace DiagnoseTool
 {
@@ -22,7 +21,6 @@ namespace DiagnoseTool
         private bool _isAdmin = false;
         private bool _hasDriverError = false;
         private bool _isLhmDriverBlocked = false;
-        private bool _isHWiNFOFallbackActive = false;
         
         // Recording states
         private bool _isRecording = false;
@@ -106,7 +104,6 @@ namespace DiagnoseTool
             StartBatteryTestCommand = new RelayCommand(ExecuteStartBatteryTest, () => !IsBatteryTestRunning);
             StopBatteryTestCommand = new RelayCommand(ExecuteStopBatteryTest, () => IsBatteryTestRunning);
             SaveBatteryReportCommand = new RelayCommand(ExecuteSaveBatteryReport, () => BatteryTestCompleted);
-            StartHWiNFOCommand = new RelayCommand(ExecuteStartHWiNFO);
             StartCpuStressCommand = new RelayCommand(ExecuteStartCpuStress, () => !IsCpuStressRunning);
             StopCpuStressCommand = new RelayCommand(ExecuteStopCpuStress, () => IsCpuStressRunning);
             StartRamStressCommand = new RelayCommand(ExecuteStartRamStress, () => !IsRamStressRunning);
@@ -126,13 +123,6 @@ namespace DiagnoseTool
             _currentTime = DateTime.Now.ToString("HH:mm:ss dddd, dd.MM.yyyy");
             _batteryInfo = BatteryService.GetBatteryInfo(_diagnostics?.BatteryData);
             _systemInfo = SystemInfoService.GetSystemInfo();
-
-            // Automate HWiNFO startup if driver is blocked or GPU temperature is missing, HWiNFO is portable, and not already running
-            bool isGpuTempMissing = Diagnostics == null || !Diagnostics.GpuTemp.HasValue || Diagnostics.GpuTemp.Value == 0;
-            if ((IsLhmDriverBlocked || isGpuTempMissing) && IsHWiNFOPortableFound && !IsHWiNFORunning())
-            {
-                ExecuteStartHWiNFO();
-            }
 
             // Setup timer to refresh data every second
             _timer = new DispatcherTimer
@@ -395,16 +385,6 @@ namespace DiagnoseTool
             get => _isLhmDriverBlocked;
             set => SetProperty(ref _isLhmDriverBlocked, value);
         }
-
-        public bool IsHWiNFOFallbackActive
-        {
-            get => _isHWiNFOFallbackActive;
-            set => SetProperty(ref _isHWiNFOFallbackActive, value);
-        }
-
-        public bool IsHWiNFOPortableFound => !string.IsNullOrEmpty(GetHWiNFOPath());
-
-        public RelayCommand StartHWiNFOCommand { get; }
 
         public string AdminStatusText => IsAdmin ? $"v{AppInfo.ShortVersion} | Admin Privileges Active" : $"v{AppInfo.ShortVersion} | No Admin Privileges (Restricted)";
 
@@ -694,13 +674,11 @@ namespace DiagnoseTool
             if (Diagnostics != null)
             {
                 IsLhmDriverBlocked = Diagnostics.IsLhmDriverBlocked;
-                IsHWiNFOFallbackActive = Diagnostics.IsHWiNFOFallbackActive;
-                HasDriverError = IsLhmDriverBlocked && !IsHWiNFOFallbackActive;
+                HasDriverError = IsLhmDriverBlocked;
             }
             else
             {
                 IsLhmDriverBlocked = false;
-                IsHWiNFOFallbackActive = false;
                 HasDriverError = false;
             }
         }
@@ -1472,152 +1450,6 @@ namespace DiagnoseTool
             }
             catch
             {
-                return false;
-            }
-        }        private string GetHWiNFOPath()
-        {
-            string baseDir = System.IO.Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
-            string[] paths = new[]
-            {
-                System.IO.Path.Combine(baseDir, "HWiNFO64.exe"),
-                System.IO.Path.Combine(baseDir, "Tools", "HWiNFO", "HWiNFO64.exe"),
-                System.IO.Path.Combine(baseDir, "Tools", "HWiNFO64.exe")
-            };
-
-            foreach (var p in paths)
-            {
-                if (System.IO.File.Exists(p)) return p;
-            }
-
-            return null;
-        }
-
-        private bool IsHWiNFORunning()
-        {
-            try
-            {
-                return System.Diagnostics.Process.GetProcesses()
-                    .Any(p => p.ProcessName.IndexOf("HWiNFO", StringComparison.OrdinalIgnoreCase) >= 0);
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        private void AutoConfigureHWiNFOSensors()
-        {
-            try
-            {
-                // 1. Enable Gadget reporting globally
-                using (var hkey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\HWiNFO64\Settings"))
-                {
-                    if (hkey != null)
-                    {
-                        hkey.SetValue("EnableReporting", 1, RegistryValueKind.DWord);
-                        hkey.SetValue("SensorsOnly", 1, RegistryValueKind.DWord);
-                        hkey.SetValue("MinimizeSensors", 1, RegistryValueKind.DWord);
-                        hkey.SetValue("ShowWelcomeScreen", 0, RegistryValueKind.DWord);
-                    }
-                }
-
-                // 2. Enable VSB (Virtual Sensor Board) reporting globally under Sensors
-                using (var sensorsKey = Registry.CurrentUser.CreateSubKey(@"SOFTWARE\HWiNFO64\Sensors"))
-                {
-                    if (sensorsKey != null)
-                    {
-                        sensorsKey.SetValue("EnableVSB", 1, RegistryValueKind.DWord);
-
-                        // 3. Scan all hardware device subkeys and enable InVSB/Sidebar for all their sensors
-                        var hwKeyNames = sensorsKey.GetSubKeyNames();
-                        foreach (var hwName in hwKeyNames)
-                        {
-                            if (hwName.Equals("Settings", StringComparison.OrdinalIgnoreCase) ||
-                                hwName.Equals("Custom", StringComparison.OrdinalIgnoreCase) ||
-                                hwName.Equals("OSD", StringComparison.OrdinalIgnoreCase))
-                            {
-                                continue;
-                            }
-
-                            using (var hwKey = sensorsKey.OpenSubKey(hwName, true))
-                            {
-                                if (hwKey == null) continue;
-
-                                var metricKeyNames = hwKey.GetSubKeyNames();
-                                foreach (var metricName in metricKeyNames)
-                                {
-                                    using (var metricKey = hwKey.OpenSubKey(metricName, true))
-                                    {
-                                        if (metricKey == null) continue;
-                                        metricKey.SetValue("InVSB", 1, RegistryValueKind.DWord);
-                                        metricKey.SetValue("Sidebar", 1, RegistryValueKind.DWord);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-
-                // 4. Backwards compatibility for legacy Settings subkey
-                using (var legacySettingsKey = Registry.CurrentUser.OpenSubKey(@"SOFTWARE\HWiNFO64\Sensors\Settings", true))
-                {
-                    if (legacySettingsKey != null)
-                    {
-                        var subKeyNames = legacySettingsKey.GetSubKeyNames();
-                        foreach (var subName in subKeyNames)
-                        {
-                            using (var subKey = legacySettingsKey.OpenSubKey(subName, true))
-                            {
-                                if (subKey == null) continue;
-                                subKey.SetValue("InVSB", 1, RegistryValueKind.DWord);
-                                subKey.SetValue("Sidebar", 1, RegistryValueKind.DWord);
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to auto-configure HWiNFO sensors: {ex.Message}");
-            }
-        }
-
-        private void ExecuteStartHWiNFO()
-        {
-            StartHWiNFOCore(out _);
-        }
-
-        private bool StartHWiNFOCore(out string message)
-        {
-            string hwinfoPath = GetHWiNFOPath();
-            if (string.IsNullOrEmpty(hwinfoPath))
-            {
-                message = "HWiNFO64.exe nicht im Tools-Ordner gefunden.";
-                ShowStatus(message, true);
-                return false;
-            }
-
-            try
-            {
-                // Automate HWiNFO configuration dynamically
-                AutoConfigureHWiNFOSensors();
-
-                var startInfo = new System.Diagnostics.ProcessStartInfo
-                {
-                    FileName = hwinfoPath,
-                    Arguments = "", // No command line flags to avoid free version warnings; registry configurations handle layout
-                    WorkingDirectory = System.IO.Path.GetDirectoryName(hwinfoPath),
-                    UseShellExecute = true
-                };
-                System.Diagnostics.Process.Start(startInfo);
-                message = "HWiNFO64 im Hintergrund gestartet und konfiguriert.";
-                ShowStatus(message, false);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                message = $"Fehler beim Starten von HWiNFO: {ex.Message}";
-                ShowStatus(message, true);
                 return false;
             }
         }
