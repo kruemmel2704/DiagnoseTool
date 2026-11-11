@@ -194,8 +194,10 @@ namespace DiagnoseTool
         public Action<int?, int?> OnStartRamStress { get; set; }
         public Action OnStopRamStress { get; set; }
         public Action OnLaunchFurMarkDirect { get; set; }
+        public Action<int?> OnLaunchFurMarkDirectWithDuration { get; set; }
         public Action OnLaunchFurMarkGui { get; set; }
         public Action OnStopFurMark { get; set; }
+        public Action<int?> OnStartFullStress { get; set; }
         public Action OnStopAllStress { get; set; }
         public Action<string> OnStartRecording { get; set; }
         public Action OnStopRecording { get; set; }
@@ -420,10 +422,10 @@ namespace DiagnoseTool
 
                     if (path == "/api/control/stress/cpu/start" || path == "/api/stress/cpu/start")
                     {
-                        int? threads = root.HasValue && root.Value.TryGetProperty("threads", out var th) && th.TryGetInt32(out int tVal) ? tVal : (int?)null;
-                        int? duration = root.HasValue && root.Value.TryGetProperty("durationMinutes", out var dm) && dm.TryGetInt32(out int dVal) ? dVal : (int?)null;
+                        int? threads = GetIntProperty(root, "threads");
+                        int? duration = GetIntProperty(root, "durationMinutes", "duration");
                         OnStartCpuStress?.Invoke(duration, threads);
-                        SendResponseJson(resp, new { success = true, action = "cpu_start", message = "CPU-Stresstest via API ausgelöst" });
+                        SendResponseJson(resp, new { success = true, action = "cpu_start", durationMinutes = duration, threads, message = "CPU-Stresstest via API ausgelöst" });
                     }
                     else if (path == "/api/control/stress/cpu/stop" || path == "/api/stress/cpu/stop")
                     {
@@ -432,10 +434,10 @@ namespace DiagnoseTool
                     }
                     else if (path == "/api/control/stress/ram/start" || path == "/api/stress/ram/start")
                     {
-                        int? targetPercent = root.HasValue && root.Value.TryGetProperty("targetPercent", out var tp) && tp.TryGetInt32(out int pVal) ? pVal : (int?)null;
-                        int? duration = root.HasValue && root.Value.TryGetProperty("durationMinutes", out var dm) && dm.TryGetInt32(out int dVal) ? dVal : (int?)null;
+                        int? targetPercent = GetIntProperty(root, "targetPercent", "percent");
+                        int? duration = GetIntProperty(root, "durationMinutes", "duration");
                         OnStartRamStress?.Invoke(duration, targetPercent);
-                        SendResponseJson(resp, new { success = true, action = "ram_start", message = "RAM-Stresstest via API ausgelöst" });
+                        SendResponseJson(resp, new { success = true, action = "ram_start", durationMinutes = duration, targetPercent, message = "RAM-Stresstest via API ausgelöst" });
                     }
                     else if (path == "/api/control/stress/ram/stop" || path == "/api/stress/ram/stop")
                     {
@@ -444,8 +446,16 @@ namespace DiagnoseTool
                     }
                     else if (path == "/api/control/stress/gpu/donut" || path == "/api/stress/gpu/donut")
                     {
-                        OnLaunchFurMarkDirect?.Invoke();
-                        SendResponseJson(resp, new { success = true, action = "gpu_donut", message = "FurMark 3D Donut Stresstest via API gestartet" });
+                        int? duration = GetIntProperty(root, "durationMinutes", "duration");
+                        if (OnLaunchFurMarkDirectWithDuration != null)
+                        {
+                            OnLaunchFurMarkDirectWithDuration(duration);
+                        }
+                        else
+                        {
+                            OnLaunchFurMarkDirect?.Invoke();
+                        }
+                        SendResponseJson(resp, new { success = true, action = "gpu_donut", durationMinutes = duration, message = "FurMark 3D Donut Stresstest via API gestartet" });
                     }
                     else if (path == "/api/control/stress/gpu/gui" || path == "/api/stress/gpu/gui")
                     {
@@ -456,6 +466,17 @@ namespace DiagnoseTool
                     {
                         OnStopFurMark?.Invoke();
                         SendResponseJson(resp, new { success = true, action = "gpu_stop", message = "FurMark via API beendet" });
+                    }
+                    else if (path == "/api/control/stress/full/start" || path == "/api/stress/full/start")
+                    {
+                        int duration = GetIntProperty(root, "durationMinutes", "duration") ?? 60;
+                        OnStartFullStress?.Invoke(duration);
+                        SendResponseJson(resp, new { success = true, action = "full_start", durationMinutes = duration, message = $"Volllast-Test (CPU + GPU) für {duration} Min. gestartet" });
+                    }
+                    else if (path == "/api/control/stress/full/stop" || path == "/api/stress/full/stop")
+                    {
+                        OnStopAllStress?.Invoke();
+                        SendResponseJson(resp, new { success = true, action = "full_stop", message = "Volllast-Test (CPU + GPU) gestoppt" });
                     }
                     else if (path == "/api/control/stress/stop-all" || path == "/api/stress/stop-all")
                     {
@@ -1101,6 +1122,18 @@ namespace DiagnoseTool
             public bool IsAutoDiscovered { get; set; }
             public string OrderNumber { get; set; }
             public string TestType { get; set; }
+        }
+
+        private static int? GetIntProperty(JsonElement? root, string prop1, string prop2 = null)
+        {
+            if (!root.HasValue) return null;
+            var el = root.Value;
+            if (el.TryGetProperty(prop1, out var val) || (prop2 != null && el.TryGetProperty(prop2, out val)))
+            {
+                if (val.ValueKind == JsonValueKind.Number && val.TryGetInt32(out int n)) return n;
+                if (val.ValueKind == JsonValueKind.String && int.TryParse(val.GetString(), out int s)) return s;
+            }
+            return null;
         }
 
         public void Dispose()

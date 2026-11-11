@@ -169,10 +169,11 @@ namespace DiagnoseTool
             DrawSummaryRow(gfx, fontBody, fontBodyBold, colorDark, colorBorder, "Arbeitsspeicher (RAM)", ramAvgPercentStr, ramMaxPercentStr, "--", "--", tableY + (rowHeight * 3), rowHeight);
 
             // --- 4. Section: Messwertverlauf (Timeline Table) ---
+            double histY = 410;
+            int maxHistoryRows = 15;
             gfx.DrawString("ZEITLICHER VERLAUF DER MESSWERTE", fontHeading, new XSolidBrush(colorDark), 40, 395);
 
             // Draw History Table Header
-            double histY = 410;
             gfx.DrawRectangle(brushHeader, 40, histY, 515, rowHeight);
             gfx.DrawRectangle(new XPen(colorBorder, 1), 40, histY, 515, rowHeight);
 
@@ -183,9 +184,9 @@ namespace DiagnoseTool
             gfx.DrawString("GPU Temp.", fontBodyBold, new XSolidBrush(colorDark), 400, histY + 14);
             gfx.DrawString("RAM Last", fontBodyBold, new XSolidBrush(colorDark), 480, histY + 14);
 
-            // Downsample list to fit up to 15 entries on the A4 page
+            // Downsample list to fit entries on the A4 page
             var displayList = new List<LogDataPoint>();
-            if (dataPoints.Count <= 15)
+            if (dataPoints.Count <= maxHistoryRows)
             {
                 displayList.AddRange(dataPoints);
             }
@@ -195,8 +196,8 @@ namespace DiagnoseTool
                 displayList.Add(dataPoints[0]);
                 
                 // Add evenly spaced internal items
-                double step = (double)(dataPoints.Count - 1) / 14;
-                for (int idx = 1; idx < 14; idx++)
+                double step = (double)(dataPoints.Count - 1) / (maxHistoryRows - 1);
+                for (int idx = 1; idx < maxHistoryRows - 1; idx++)
                 {
                     int targetIdx = (int)Math.Round(idx * step);
                     if (targetIdx > 0 && targetIdx < dataPoints.Count - 1)

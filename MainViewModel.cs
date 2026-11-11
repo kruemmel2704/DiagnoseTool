@@ -47,7 +47,9 @@ namespace DiagnoseTool
         private TimeSpan _cpuStressRemainingTime;
         private string _cpuStressRemainingDisplay = "00:00";
         private int _cpuStressSelectedThreads = Environment.ProcessorCount;
-        private int _cpuStressSelectedDurationIndex = 1; // Default to 1 min (0: 30s, 1: 1m, 2: 5m, 3: 10m, 4: Infinite)
+        private int _cpuStressSelectedDurationIndex = 1; // Default to 1 min
+        private double? _overrideCpuDurationSeconds = null;
+        private bool _isCpuStressInfinite = false;
         private bool _cpuStressCompleted = false;
         private string _cpuStressResults = "";
         private ObservableCollection<string> _cpuStressLog = new ObservableCollection<string>();
@@ -58,7 +60,9 @@ namespace DiagnoseTool
         private TimeSpan _ramStressRemainingTime;
         private string _ramStressRemainingDisplay = "00:00";
         private int _ramStressTargetPercent = 85; // 40% to 95%
-        private int _ramStressSelectedDurationIndex = 1; // Default to 1 min (0: 30s, 1: 1m, 2: 5m, 3: 10m, 4: Infinite)
+        private int _ramStressSelectedDurationIndex = 1; // Default to 1 min
+        private double? _overrideRamDurationSeconds = null;
+        private bool _isRamStressInfinite = false;
         private bool _ramStressCompleted = false;
         private string _ramStressResults = "";
         private ObservableCollection<string> _ramStressLog = new ObservableCollection<string>();
@@ -69,6 +73,7 @@ namespace DiagnoseTool
         private int _ramStressErrorCount = 0;
         private string _ramStressStatusText = "Bereit zum RAM-Stresstest";
         private readonly List<byte[]> _ramBlocks = new List<byte[]>();
+        private System.Threading.CancellationTokenSource _furMarkAutoStopCts;
 
         // Order & Online Monitoring (LHM API on Port 8085)
         private string _orderNumber = "";
@@ -168,6 +173,9 @@ namespace DiagnoseTool
             "1 Minute",
             "5 Minuten",
             "10 Minuten",
+            "15 Minuten",
+            "30 Minuten",
+            "60 Minuten",
             "Unbegrenzt"
         };
 
@@ -618,7 +626,7 @@ namespace DiagnoseTool
 
             if (IsCpuStressRunning)
             {
-                if (CpuStressSelectedDurationIndex != 4) // Not Infinite
+                if (!_isCpuStressInfinite)
                 {
                     _cpuStressRemainingTime = _cpuStressRemainingTime.Subtract(TimeSpan.FromSeconds(1));
                     CpuStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _cpuStressRemainingTime.Minutes + _cpuStressRemainingTime.Hours * 60, _cpuStressRemainingTime.Seconds);
@@ -647,7 +655,7 @@ namespace DiagnoseTool
 
             if (IsRamStressRunning)
             {
-                if (RamStressSelectedDurationIndex != 4) // Not Infinite
+                if (!_isRamStressInfinite)
                 {
                     _ramStressRemainingTime = _ramStressRemainingTime.Subtract(TimeSpan.FromSeconds(1));
                     RamStressRemainingDisplay = string.Format("{0:D2}:{1:D2}", _ramStressRemainingTime.Minutes + _ramStressRemainingTime.Hours * 60, _ramStressRemainingTime.Seconds);
@@ -749,7 +757,7 @@ namespace DiagnoseTool
             _launcherService.RefreshPaths();
             Tools = null;
             Tools = _launcherService.Tools;
-            ShowStatus("Scanned USB sticks for executables.", false);
+            ShowStatus("Laufwerke & USB-Sticks nach Diagnose-Tools durchsucht.", false);
         }
 
         private void ExecuteSelectTab(string tabIndexStr)
@@ -868,8 +876,10 @@ namespace DiagnoseTool
                 _lhmHttpServer.OnStartRamStress = (duration, percent) => RemoteStartRamStress(duration, percent);
                 _lhmHttpServer.OnStopRamStress = () => RemoteStopRamStress();
                 _lhmHttpServer.OnLaunchFurMarkDirect = () => RemoteLaunchFurMarkDirect();
+                _lhmHttpServer.OnLaunchFurMarkDirectWithDuration = (duration) => RemoteLaunchFurMarkDirect(duration);
                 _lhmHttpServer.OnLaunchFurMarkGui = () => RemoteLaunchFurMarkGui();
                 _lhmHttpServer.OnStopFurMark = () => RemoteStopFurMark();
+                _lhmHttpServer.OnStartFullStress = (duration) => RemoteStartFullStress(duration);
                 _lhmHttpServer.OnStopAllStress = () => RemoteStopAllStress();
                 _lhmHttpServer.OnStartRecording = (orderNo) => RemoteStartRecording(orderNo);
                 _lhmHttpServer.OnStopRecording = () => RemoteStopRecording();
@@ -968,17 +978,33 @@ namespace DiagnoseTool
 
                 if (durationMinutes.HasValue)
                 {
-                    if (durationMinutes.Value == 1) CpuStressSelectedDurationIndex = 1;
-                    else if (durationMinutes.Value == 5) CpuStressSelectedDurationIndex = 2;
-                    else if (durationMinutes.Value == 10) CpuStressSelectedDurationIndex = 3;
-                    else if (durationMinutes.Value <= 0) CpuStressSelectedDurationIndex = 4;
+                    if (durationMinutes.Value <= 0)
+                    {
+                        _overrideCpuDurationSeconds = double.MaxValue;
+                        CpuStressSelectedDurationIndex = 7; // Unbegrenzt
+                    }
+                    else
+                    {
+                        _overrideCpuDurationSeconds = durationMinutes.Value * 60.0;
+                        if (durationMinutes.Value == 1) CpuStressSelectedDurationIndex = 1;
+                        else if (durationMinutes.Value == 5) CpuStressSelectedDurationIndex = 2;
+                        else if (durationMinutes.Value == 10) CpuStressSelectedDurationIndex = 3;
+                        else if (durationMinutes.Value == 15) CpuStressSelectedDurationIndex = 4;
+                        else if (durationMinutes.Value == 30) CpuStressSelectedDurationIndex = 5;
+                        else if (durationMinutes.Value == 60) CpuStressSelectedDurationIndex = 6;
+                    }
+                }
+                else
+                {
+                    _overrideCpuDurationSeconds = null;
                 }
 
-                if (!IsCpuStressRunning)
+                if (IsCpuStressRunning)
                 {
-                    ExecuteStartCpuStress();
-                    ShowStatus("CPU-Stresstest über Remote gestartet.", false);
+                    ExecuteStopCpuStress();
                 }
+                ExecuteStartCpuStress();
+                ShowStatus("CPU-Stresstest über Remote gestartet.", false);
             });
         }
 
@@ -1005,17 +1031,33 @@ namespace DiagnoseTool
 
                 if (durationMinutes.HasValue)
                 {
-                    if (durationMinutes.Value == 1) RamStressSelectedDurationIndex = 1;
-                    else if (durationMinutes.Value == 5) RamStressSelectedDurationIndex = 2;
-                    else if (durationMinutes.Value == 10) RamStressSelectedDurationIndex = 3;
-                    else if (durationMinutes.Value <= 0) RamStressSelectedDurationIndex = 4;
+                    if (durationMinutes.Value <= 0)
+                    {
+                        _overrideRamDurationSeconds = double.MaxValue;
+                        RamStressSelectedDurationIndex = 7; // Unbegrenzt
+                    }
+                    else
+                    {
+                        _overrideRamDurationSeconds = durationMinutes.Value * 60.0;
+                        if (durationMinutes.Value == 1) RamStressSelectedDurationIndex = 1;
+                        else if (durationMinutes.Value == 5) RamStressSelectedDurationIndex = 2;
+                        else if (durationMinutes.Value == 10) RamStressSelectedDurationIndex = 3;
+                        else if (durationMinutes.Value == 15) RamStressSelectedDurationIndex = 4;
+                        else if (durationMinutes.Value == 30) RamStressSelectedDurationIndex = 5;
+                        else if (durationMinutes.Value == 60) RamStressSelectedDurationIndex = 6;
+                    }
+                }
+                else
+                {
+                    _overrideRamDurationSeconds = null;
                 }
 
-                if (!IsRamStressRunning)
+                if (IsRamStressRunning)
                 {
-                    ExecuteStartRamStress();
-                    ShowStatus("RAM-Stresstest über Remote gestartet.", false);
+                    ExecuteStopRamStress();
                 }
+                ExecuteStartRamStress();
+                ShowStatus("RAM-Stresstest über Remote gestartet.", false);
             });
         }
 
@@ -1031,12 +1073,43 @@ namespace DiagnoseTool
             });
         }
 
-        public void RemoteLaunchFurMarkDirect()
+        public void RemoteLaunchFurMarkDirect(int? durationMinutes = null)
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                try
+                {
+                    _furMarkAutoStopCts?.Cancel();
+                    _furMarkAutoStopCts?.Dispose();
+                }
+                catch { }
+                _furMarkAutoStopCts = null;
+
                 ExecuteLaunchFurMarkDirect();
-                ShowStatus("FurMark 3D Donut über Remote gestartet.", false);
+
+                if (durationMinutes.HasValue && durationMinutes.Value > 0)
+                {
+                    _furMarkAutoStopCts = new System.Threading.CancellationTokenSource();
+                    var token = _furMarkAutoStopCts.Token;
+                    int delayMs = durationMinutes.Value * 60 * 1000;
+                    System.Threading.Tasks.Task.Delay(delayMs, token).ContinueWith(t =>
+                    {
+                        if (!t.IsCanceled)
+                        {
+                            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                            {
+                                RemoteStopFurMark();
+                                ShowStatus($"FurMark nach {durationMinutes.Value} Min. automatisch beendet.", false);
+                            });
+                        }
+                    }, token);
+
+                    ShowStatus($"FurMark 3D Donut über Remote gestartet (Dauer: {durationMinutes.Value} Min.).", false);
+                }
+                else
+                {
+                    ShowStatus("FurMark 3D Donut über Remote gestartet (Unbegrenzt).", false);
+                }
             });
         }
 
@@ -1053,8 +1126,26 @@ namespace DiagnoseTool
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                try
+                {
+                    _furMarkAutoStopCts?.Cancel();
+                    _furMarkAutoStopCts?.Dispose();
+                }
+                catch { }
+                _furMarkAutoStopCts = null;
+
                 _launcherService.StopFurMark(out _);
                 ShowStatus("FurMark über Remote beendet.", false);
+            });
+        }
+
+        public void RemoteStartFullStress(int? durationMinutes = null)
+        {
+            Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                RemoteStartCpuStress(durationMinutes);
+                RemoteLaunchFurMarkDirect(durationMinutes);
+                ShowStatus($"Volllast-Stresstest (CPU + GPU) über Remote gestartet ({(durationMinutes.HasValue && durationMinutes.Value > 0 ? durationMinutes.Value + " Min." : "Unbegrenzt")}).", false);
             });
         }
 
@@ -1062,6 +1153,14 @@ namespace DiagnoseTool
         {
             Avalonia.Threading.Dispatcher.UIThread.Post(() =>
             {
+                try
+                {
+                    _furMarkAutoStopCts?.Cancel();
+                    _furMarkAutoStopCts?.Dispose();
+                }
+                catch { }
+                _furMarkAutoStopCts = null;
+
                 if (IsCpuStressRunning) ExecuteStopCpuStress();
                 if (IsRamStressRunning) ExecuteStopRamStress();
                 _launcherService.StopFurMark(out _);
@@ -1479,36 +1578,67 @@ namespace DiagnoseTool
             CpuStressLog.Clear();
 
             // Resolve duration
-            double durationSeconds = 0;
-            string durationText = "";
-            switch (CpuStressSelectedDurationIndex)
+            double durationSeconds = 60;
+            string durationText = "1 Minute";
+
+            if (_overrideCpuDurationSeconds.HasValue)
             {
-                case 0:
-                    durationSeconds = 30;
-                    durationText = "30 Sekunden";
-                    break;
-                case 1:
-                    durationSeconds = 60;
-                    durationText = "1 Minute";
-                    break;
-                case 2:
-                    durationSeconds = 300;
-                    durationText = "5 Minuten";
-                    break;
-                case 3:
-                    durationSeconds = 600;
-                    durationText = "10 Minuten";
-                    break;
-                case 4:
-                    durationSeconds = double.MaxValue;
+                durationSeconds = _overrideCpuDurationSeconds.Value;
+                if (durationSeconds == double.MaxValue)
+                {
                     durationText = "Unbegrenzt";
-                    break;
+                }
+                else
+                {
+                    int mins = (int)Math.Round(durationSeconds / 60.0);
+                    durationText = mins > 0 ? $"{mins} Minuten" : $"{durationSeconds:F0} Sekunden";
+                }
+            }
+            else
+            {
+                switch (CpuStressSelectedDurationIndex)
+                {
+                    case 0:
+                        durationSeconds = 30;
+                        durationText = "30 Sekunden";
+                        break;
+                    case 1:
+                        durationSeconds = 60;
+                        durationText = "1 Minute";
+                        break;
+                    case 2:
+                        durationSeconds = 300;
+                        durationText = "5 Minuten";
+                        break;
+                    case 3:
+                        durationSeconds = 600;
+                        durationText = "10 Minuten";
+                        break;
+                    case 4:
+                        durationSeconds = 900;
+                        durationText = "15 Minuten";
+                        break;
+                    case 5:
+                        durationSeconds = 1800;
+                        durationText = "30 Minuten";
+                        break;
+                    case 6:
+                        durationSeconds = 3600;
+                        durationText = "60 Minuten";
+                        break;
+                    case 7:
+                    default:
+                        durationSeconds = double.MaxValue;
+                        durationText = "Unbegrenzt";
+                        break;
+                }
             }
 
-            if (durationSeconds == double.MaxValue)
+            _isCpuStressInfinite = (durationSeconds == double.MaxValue);
+            if (_isCpuStressInfinite)
             {
                 _cpuStressRemainingTime = TimeSpan.Zero;
-                CpuStressRemainingDisplay = "Unbegrenzt";
+                CpuStressRemainingDisplay = "00:00 (Unbegrenzt)";
             }
             else
             {
@@ -1597,34 +1727,65 @@ namespace DiagnoseTool
 
             double durationSeconds = 60;
             string durationText = "1 Minute";
-            switch (RamStressSelectedDurationIndex)
+
+            if (_overrideRamDurationSeconds.HasValue)
             {
-                case 0:
-                    durationSeconds = 30;
-                    durationText = "30 Sekunden";
-                    break;
-                case 1:
-                    durationSeconds = 60;
-                    durationText = "1 Minute";
-                    break;
-                case 2:
-                    durationSeconds = 300;
-                    durationText = "5 Minuten";
-                    break;
-                case 3:
-                    durationSeconds = 600;
-                    durationText = "10 Minuten";
-                    break;
-                case 4:
-                    durationSeconds = double.MaxValue;
+                durationSeconds = _overrideRamDurationSeconds.Value;
+                if (durationSeconds == double.MaxValue)
+                {
                     durationText = "Unbegrenzt";
-                    break;
+                }
+                else
+                {
+                    int mins = (int)Math.Round(durationSeconds / 60.0);
+                    durationText = mins > 0 ? $"{mins} Minuten" : $"{durationSeconds:F0} Sekunden";
+                }
+            }
+            else
+            {
+                switch (RamStressSelectedDurationIndex)
+                {
+                    case 0:
+                        durationSeconds = 30;
+                        durationText = "30 Sekunden";
+                        break;
+                    case 1:
+                        durationSeconds = 60;
+                        durationText = "1 Minute";
+                        break;
+                    case 2:
+                        durationSeconds = 300;
+                        durationText = "5 Minuten";
+                        break;
+                    case 3:
+                        durationSeconds = 600;
+                        durationText = "10 Minuten";
+                        break;
+                    case 4:
+                        durationSeconds = 900;
+                        durationText = "15 Minuten";
+                        break;
+                    case 5:
+                        durationSeconds = 1800;
+                        durationText = "30 Minuten";
+                        break;
+                    case 6:
+                        durationSeconds = 3600;
+                        durationText = "60 Minuten";
+                        break;
+                    case 7:
+                    default:
+                        durationSeconds = double.MaxValue;
+                        durationText = "Unbegrenzt";
+                        break;
+                }
             }
 
-            if (durationSeconds == double.MaxValue)
+            _isRamStressInfinite = (durationSeconds == double.MaxValue);
+            if (_isRamStressInfinite)
             {
                 _ramStressRemainingTime = TimeSpan.Zero;
-                RamStressRemainingDisplay = "Unbegrenzt";
+                RamStressRemainingDisplay = "00:00 (Unbegrenzt)";
             }
             else
             {
@@ -1872,6 +2033,12 @@ namespace DiagnoseTool
             {
                 _ramBlocks.Clear();
             }
+            try
+            {
+                _furMarkAutoStopCts?.Cancel();
+                _furMarkAutoStopCts?.Dispose();
+            }
+            catch {}
             try
             {
                 _udpDiscoveryClient?.Stop();

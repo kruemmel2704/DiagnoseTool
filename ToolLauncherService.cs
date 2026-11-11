@@ -340,8 +340,9 @@ namespace DiagnoseTool
         {
             try
             {
+                string systemRoot = Path.GetPathRoot(Environment.SystemDirectory);
                 var drives = DriveInfo.GetDrives()
-                    .Where(d => d.DriveType == DriveType.Removable && d.IsReady);
+                    .Where(d => d.IsReady && (d.DriveType == DriveType.Removable || (d.DriveType == DriveType.Fixed && !d.RootDirectory.FullName.Equals(systemRoot, StringComparison.OrdinalIgnoreCase))));
 
                 foreach (var drive in drives)
                 {

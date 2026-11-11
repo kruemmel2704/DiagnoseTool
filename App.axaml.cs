@@ -15,6 +15,14 @@ namespace DiagnoseTool
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
+                // Verhindert Ruhezustand & Standby während die Diagnose-App läuft
+                SleepManagementService.PreventSleepAndHibernate();
+
+                desktop.Exit += (s, e) =>
+                {
+                    SleepManagementService.RestoreNormalSleep();
+                };
+
                 desktop.MainWindow = new MainWindow
                 {
                     DataContext = new MainViewModel()
