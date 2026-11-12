@@ -67,6 +67,9 @@ namespace DiagnoseTool
                 case "/api/stress/ram":
                     SendResponseJson(resp, rc.GetRamStressDetails());
                     return true;
+                case "/api/update":
+                    SendCamelJson(resp, rc.GetUpdateStatus());
+                    return true;
                 case "/api/stress/gpu":
                     SendResponseJson(resp, rc.GetGpuStressDetails());
                     return true;
@@ -309,6 +312,12 @@ namespace DiagnoseTool
                     result = rc.SetSleepPrevention(prevent.Value);
                     break;
                 }
+                case "update/check":
+                    result = rc.CheckForUpdates();
+                    break;
+                case "update/install":
+                    result = rc.InstallUpdate();
+                    break;
                 case "hardware-check/announce":
                 case "hardware-check/register":
                     result = rc.AnnounceToHardwareCheck();

@@ -135,6 +135,9 @@ namespace DiagnoseTool
             // Sitzungsüberwachung mit Kontext versorgen (für Absturzanalyse & Abmeldung bei Hardware-Check)
             InitializeSessionLifecycle();
 
+            // Auto-Update über GitHub-Releases
+            InitializeUpdater();
+
             // Start API Server and UDP autodiscovery immediately on application start
             StartOnlineMonitoring();
             StartUdpDiscovery();
@@ -1903,6 +1906,7 @@ namespace DiagnoseTool
         public void Dispose()
         {
             SessionLifecycleService.MarkCleanExit("window_closed");
+            UpdateService.Stop();
             _timer?.Stop();
             try
             {

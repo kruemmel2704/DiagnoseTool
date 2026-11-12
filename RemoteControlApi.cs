@@ -119,6 +119,11 @@ namespace DiagnoseTool
         RemoteActionResult WindowAction(string action);
         RemoteActionResult SetSleepPrevention(bool enabled);
         RemoteActionResult AnnounceToHardwareCheck();
+
+        // --- Auto-Update (GitHub-Releases) ---
+        object GetUpdateStatus();
+        RemoteActionResult CheckForUpdates();
+        RemoteActionResult InstallUpdate();
     }
 
     /// <summary>
@@ -150,6 +155,7 @@ namespace DiagnoseTool
                 Ep("/api/recording/export", "Aufzeichnung als CSV-Datei"),
                 Ep("/api/report/system", "System-Prüfbericht als PDF (aus der Werte-Aufzeichnung)"),
                 Ep("/api/report/battery", "Batterie-Prüfbericht als PDF"),
+                Ep("/api/update", "Update-Status: installierte/neueste Version, Download-Fortschritt"),
                 Ep("/api/session", "Aktuelle Sitzung (ID, Startzeit) und Info zur letzten unsauber beendeten Sitzung"),
                 Ep("/api/crash/last", "Absturzanalyse der letzten unsauber beendeten Sitzung (inkl. Ereignisanzeige-Auszug)"),
                 Ep("/api/crash/last/export", "Absturzanalyse als Textdatei"),
@@ -188,6 +194,8 @@ namespace DiagnoseTool
                 Ep("/api/control/ui/window", "Fenster steuern", "{ action: minimize|maximize|restore|focus }"),
                 Ep("/api/control/power/sleep", "Standby/Ruhezustand blockieren oder freigeben", "{ preventSleep: bool }"),
                 Ep("/api/control/hardware-check/announce", "Erneut bei Hardware-Check anmelden (HTTP + UDP)"),
+                Ep("/api/control/update/check", "Jetzt nach einem neuen Release suchen"),
+                Ep("/api/control/update/install", "Neueste Version herunterladen, prüfen (SHA-256), installieren und neu starten"),
                 Ep("/api/control/crash/resend", "Letzten Absturzbericht erneut an Hardware-Check senden"),
                 Ep("/api/control/app/exit", "DiagnoseTool ordnungsgemäß beenden (Hardware-Check zeigt 'Programm geschlossen')"),
             };
