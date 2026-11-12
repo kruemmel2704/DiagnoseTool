@@ -6,12 +6,38 @@ on:
       - 'v*'
       - '2.0*'
       - '[0-9]+.*'
+  # Manuell startbar (Actions -> Build and Release -> Run workflow).
+  # Ohne Tag wird das Release als v<Version aus DiagnoseTool.csproj> erstellt.
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.v.outputs.tag }}
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Determine release tag
+      id: v
+      shell: bash
+      run: |
+        if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+          TAG="${GITHUB_REF_NAME}"
+        else
+          VERSION=$(sed -n 's:.*<Version>\(.*\)</Version>.*:\1:p' DiagnoseTool.csproj | head -n1)
+          TAG="v${VERSION}"
+        fi
+        echo "Release tag: ${TAG}"
+        echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
   build-windows:
+    needs: version
     runs-on: windows-latest
-    permissions:
-      contents: write
 
     steps:
     - name: Checkout Code
@@ -35,8 +61,10 @@ jobs:
         Copy-Item -Path .\publish\win-arm64\DiagnoseTool.exe -Destination .\DiagnoseTool-Windows-arm64.exe
 
     - name: Create Release and Upload Windows Files
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ needs.version.outputs.tag }}
+        target_commitish: ${{ github.sha }}
         files: |
           DiagnoseTool-Windows-x64.exe
           DiagnoseTool-Windows-arm64.exe
@@ -44,9 +72,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build-macos:
+    needs: version
     runs-on: macos-latest
-    permissions:
-      contents: write
 
     steps:
     - name: Checkout Code
@@ -67,8 +94,10 @@ jobs:
         hdiutil create -volname "DiagnoseTool" -srcfolder DiagnoseTool.app -ov -format UDZO DiagnoseTool-macOS-Universal.dmg
 
     - name: Create Release and Upload macOS DMG
-      uses: softprops/action-gh-release@v1
+      uses: softprops/action-gh-release@v2
       with:
+        tag_name: ${{ needs.version.outputs.tag }}
+        target_commitish: ${{ github.sha }}
         files: |
           DiagnoseTool-macOS-Universal.dmg
       env:
