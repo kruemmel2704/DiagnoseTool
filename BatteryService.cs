@@ -22,6 +22,7 @@ namespace DiagnoseTool
         public int RemainingTimeSeconds { get; set; } // -1 if unknown/charging
         public double Voltage { get; set; }
         public double ChargeRateWatts { get; set; }
+        public double RemainingCapacityMWh { get; set; }
 
         public string ChargingStatusDisplay
         {
@@ -90,7 +91,8 @@ namespace DiagnoseTool
         {
             var info = new BatteryInfo();
 
-            // 1. Get real-time status using P/Invoke GetSystemPowerStatus
+            // 1. Get real-time status using P/Invoke GetSystemPowerStatus (gleicher Wert wie in der Windows-Taskleiste)
+            bool hasWindowsPercent = false;
             try
             {
                 if (GetSystemPowerStatus(out SystemPowerStatus status))
@@ -99,6 +101,7 @@ namespace DiagnoseTool
                     {
                         info.CurrentChargePercent = status.BatteryLifePercent;
                         info.IsPresent = (status.BatteryFlag & 128) == 0;
+                        hasWindowsPercent = info.IsPresent;
                     }
                     else
                     {
@@ -127,7 +130,8 @@ namespace DiagnoseTool
                 if (!string.IsNullOrWhiteSpace(lhmBattery.Name))
                     info.DeviceName = lhmBattery.Name;
 
-                if (lhmBattery.ChargeLevel.HasValue && lhmBattery.ChargeLevel.Value > 0)
+                // LHM-Ladestand nur als Rückfall: er bleibt auf manchen Notebooks (z.B. Lenovo) auf dem Startwert stehen
+                if (!hasWindowsPercent && lhmBattery.ChargeLevel.HasValue && lhmBattery.ChargeLevel.Value > 0)
                     info.CurrentChargePercent = lhmBattery.ChargeLevel.Value;
 
                 if (lhmBattery.DesignCapacityMWh.HasValue && lhmBattery.DesignCapacityMWh.Value > 0)
@@ -163,7 +167,10 @@ namespace DiagnoseTool
                 return info;
             }
 
-            // 3. Query static information using WMI root\wmi if capacities or metadata are still missing
+            // 3. Live-Werte direkt vom Akku-Treiber (root\wmi BatteryStatus): Restkapazität, Entlade-/Ladeleistung
+            ApplyLiveBatteryStatus(info, hasWindowsPercent);
+
+            // 4. Query static information using WMI root\wmi if capacities or metadata are still missing
             try
             {
                 using (var searcher = new ManagementObjectSearcher(@"root\wmi", "SELECT DesignedCapacity, ManufacturerName, DeviceName, Chemistry FROM BatteryStaticData"))
@@ -227,6 +234,94 @@ namespace DiagnoseTool
             }
 
             return info;
+        }
+
+        /// <summary>
+        /// Liest Restkapazität (mWh), Lade-/Entladeleistung (mW) und Spannung live aus root\wmi BatteryStatus
+        /// und berechnet den Ladestand mit Nachkommastelle (Restkapazität / volle Ladekapazität).
+        /// </summary>
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        private static void ApplyLiveBatteryStatus(BatteryInfo info, bool hasWindowsPercent)
+        {
+            try
+            {
+                double remainingMWh = 0, dischargeMW = 0, chargeMW = 0, voltageMV = 0;
+                bool? powerOnline = null, charging = null;
+
+                using (var searcher = new ManagementObjectSearcher(@"root\wmi", "SELECT RemainingCapacity, DischargeRate, ChargeRate, Voltage, PowerOnline, Charging FROM BatteryStatus"))
+                using (var collection = searcher.Get())
+                {
+                    foreach (ManagementObject obj in collection)
+                    {
+                        remainingMWh += ToDouble(obj["RemainingCapacity"]);
+                        dischargeMW += ToDouble(obj["DischargeRate"]);
+                        chargeMW += ToDouble(obj["ChargeRate"]);
+                        if (voltageMV <= 0) voltageMV = ToDouble(obj["Voltage"]);
+                        if (obj["PowerOnline"] is bool po) powerOnline = (powerOnline ?? false) || po;
+                        if (obj["Charging"] is bool ch) charging = (charging ?? false) || ch;
+                    }
+                }
+
+                double fullMWh = GetFullChargedCapacityMWh();
+                if (fullMWh <= 0) fullMWh = info.FullChargeCapacity;
+
+                if (remainingMWh > 0 && fullMWh > 0)
+                {
+                    info.RemainingCapacityMWh = remainingMWh;
+                    double precise = Math.Min(100.0, remainingMWh / fullMWh * 100.0);
+                    // Genauer Wert nur, wenn er zur Windows-Anzeige passt (sonst gilt Windows)
+                    if (!hasWindowsPercent || Math.Abs(precise - info.CurrentChargePercent) <= 2.5)
+                        info.CurrentChargePercent = Math.Round(precise, 1);
+                }
+
+                if (dischargeMW > 0 && (charging != true))
+                {
+                    info.ChargeRateWatts = dischargeMW / 1000.0;
+                }
+                else if (chargeMW > 0)
+                {
+                    info.ChargeRateWatts = chargeMW / 1000.0;
+                }
+
+                if (voltageMV > 0) info.Voltage = voltageMV / 1000.0;
+                if (powerOnline.HasValue) info.IsConnectedToAc = powerOnline.Value;
+                if (charging.HasValue) info.IsCharging = charging.Value;
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"BatteryStatus WMI query failed: {ex.Message}");
+            }
+        }
+
+        private static double _cachedFullChargedMWh;
+        private static DateTime _fullChargedCheckedUtc = DateTime.MinValue;
+
+        [System.Runtime.Versioning.SupportedOSPlatform("windows")]
+        private static double GetFullChargedCapacityMWh()
+        {
+            if ((DateTime.UtcNow - _fullChargedCheckedUtc).TotalSeconds < 60 && _cachedFullChargedMWh > 0)
+                return _cachedFullChargedMWh;
+
+            _fullChargedCheckedUtc = DateTime.UtcNow;
+            try
+            {
+                double total = 0;
+                using (var searcher = new ManagementObjectSearcher(@"root\wmi", "SELECT FullChargedCapacity FROM BatteryFullChargedCapacity"))
+                using (var collection = searcher.Get())
+                {
+                    foreach (ManagementObject obj in collection)
+                        total += ToDouble(obj["FullChargedCapacity"]);
+                }
+                if (total > 0) _cachedFullChargedMWh = total;
+            }
+            catch { }
+            return _cachedFullChargedMWh;
+        }
+
+        private static double ToDouble(object v)
+        {
+            try { return v == null ? 0 : Convert.ToDouble(v); }
+            catch { return 0; }
         }
 
         private static void QueryFallbackCimv2(BatteryInfo info)
