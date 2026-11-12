@@ -24,6 +24,8 @@ namespace DiagnoseTool
             List<LogDataPoint> dataPoints,
             string orderNumber = null)
         {
+            PdfFontResolver.EnsureRegistered();
+
             // Create PDF Document
             var document = new PdfDocument();
             document.Info.Title = !string.IsNullOrEmpty(orderNumber)
@@ -336,6 +338,8 @@ namespace DiagnoseTool
             double endPercent,
             System.Collections.Generic.List<string> logEntries)
         {
+            PdfFontResolver.EnsureRegistered();
+
             // Create PDF Document
             var document = new PdfDocument();
             document.Info.Title = "Batterie-Prüfbericht";

@@ -15,10 +15,10 @@
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-    <Version>2.6.3</Version>
-    <AssemblyVersion>2.6.3</AssemblyVersion>
-    <FileVersion>2.6.3</FileVersion>
-    <InformationalVersion>2.6.3</InformationalVersion>
+    <Version>2.6.4</Version>
+    <AssemblyVersion>2.6.4</AssemblyVersion>
+    <FileVersion>2.6.4</FileVersion>
+    <InformationalVersion>2.6.4</InformationalVersion>
   </PropertyGroup>
 
   <ItemGroup>
@@ -29,6 +29,12 @@
     <PackageReference Include="LibreHardwareMonitorLib" Version="0.9.6" />
     <PackageReference Include="PdfSharp" Version="6.1.1" />
     <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Eingebettete Schrift für die PDF-Berichte (PdfSharp hat keine eigenen Schriften) -->
+    <EmbeddedResource Include="Fonts\*.ttf" />
+    <None Include="Fonts\OFL-Carlito.txt" CopyToOutputDirectory="PreserveNewest" />
     <PackageReference Include="System.Management" Version="10.0.2" />
   </ItemGroup>
 
