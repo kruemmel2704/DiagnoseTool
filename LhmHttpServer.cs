@@ -177,6 +177,10 @@ namespace DiagnoseTool
         public string ServerHost { get; set; } = "";
         public int ServerPort { get; set; } = 5085;
         public string SessionId { get; set; } = SessionLifecycleService.SessionId;
+        public string AppVersion { get; set; } = AppInfo.Version;
+        public bool UpdateAvailable { get; set; } = UpdateService.LastResult?.IsUpdateAvailable ?? false;
+        public string LatestVersion { get; set; } = UpdateService.LastResult?.LatestVersion;
+        public string UpdateState { get; set; } = UpdateService.State;
         public string SessionStartedUtc { get; set; } = SessionLifecycleService.SessionStartedUtc.ToString("o");
     }
 
@@ -378,6 +382,12 @@ namespace DiagnoseTool
                             sessionId = SessionLifecycleService.SessionId,
                             sessionStartedUtc = SessionLifecycleService.SessionStartedUtc.ToString("o"),
                             previousSessionUnclean = SessionLifecycleService.PreviousUncleanSession != null,
+                            update = new
+                            {
+                                updateAvailable = UpdateService.LastResult?.IsUpdateAvailable ?? false,
+                                latestVersion = UpdateService.LastResult?.LatestVersion,
+                                state = UpdateService.State
+                            },
                             serverConnection = new
                             {
                                 isConnected = stress?.IsServerConnected ?? false,
