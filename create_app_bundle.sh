@@ -27,8 +27,11 @@ for ARCH in "${ARCHS[@]}"; do
     DMG="DiagnoseTool-macOS-$LABEL.dmg"
 
     echo "--- [$LABEL] dotnet publish ($RID) ---"
+    # Keine wiederverwendeten Build-Server: der zweite Publish hing sonst auf dem Runner
     dotnet publish DiagnoseTool.csproj -c Release -r "$RID" -o "$OUT" --self-contained true \
-        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true
+        -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=false \
+        --disable-build-servers -nodeReuse:false -p:UseSharedCompilation=false
+    dotnet build-server shutdown >/dev/null 2>&1 || true
 
     echo "--- [$LABEL] App-Bundle ---"
     rm -rf "$APP_DIR"

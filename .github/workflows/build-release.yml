@@ -16,6 +16,7 @@ permissions:
 jobs:
   version:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       tag: ${{ steps.v.outputs.tag }}
     steps:
@@ -38,6 +39,7 @@ jobs:
   build-windows:
     needs: version
     runs-on: windows-latest
+    timeout-minutes: 30
 
     steps:
     - name: Checkout Code
@@ -74,6 +76,19 @@ jobs:
   build-macos:
     needs: version
     runs-on: macos-latest
+    timeout-minutes: 30
+    # Je Architektur ein eigener Runner: zwei Publishes nacheinander auf demselben
+    # Runner liefen in einen Hänger (osx-x64 nach osx-arm64)
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            label: AppleSilicon
+            extra: install-macos.sh
+          - arch: x64
+            label: Intel
+            extra: ''
 
     steps:
     - name: Checkout Code
@@ -84,19 +99,18 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    - name: Build signed App Bundles & DMGs (Apple Silicon + Intel)
+    - name: Build signed App Bundle & DMG (${{ matrix.label }})
       run: |
         chmod +x create_app_bundle.sh
-        ./create_app_bundle.sh arm64 x64
+        ./create_app_bundle.sh ${{ matrix.arch }}
 
-    - name: Create Release and Upload macOS Files
+    - name: Upload macOS Files to Release
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ needs.version.outputs.tag }}
         target_commitish: ${{ github.sha }}
         files: |
-          DiagnoseTool-macOS-AppleSilicon.dmg
-          DiagnoseTool-macOS-Intel.dmg
-          install-macos.sh
+          DiagnoseTool-macOS-${{ matrix.label }}.dmg
+          ${{ matrix.extra }}
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
