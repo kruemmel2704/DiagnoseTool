@@ -82,6 +82,8 @@ EOF
     cp -R "$APP_DIR" "$STAGE/"
     ln -s /Applications "$STAGE/Programme"
     rm -f "$DMG"
-    hdiutil create -volname "DiagnoseTool $APP_VERSION" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+    # Größe explizit vorgeben: hdiutil schätzt bei -srcfolder zu knapp ("No space left on device")
+    SIZE_MB=$(( $(du -sm "$STAGE" | cut -f1) + 64 ))
+    hdiutil create -volname "DiagnoseTool $APP_VERSION" -srcfolder "$STAGE" -size "${SIZE_MB}m" -fs HFS+ -ov -format UDZO "$DMG"
     echo "=== $DMG erstellt ==="
 done
