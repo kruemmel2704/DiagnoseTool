@@ -1538,6 +1538,9 @@ namespace DiagnoseTool
             CpuStressLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest gestartet ({1} Threads, Dauer: {2})", 
                 DateTime.Now, CpuStressSelectedThreads, durationText));
 
+            // Windows 11 EcoQoS/Power-Throttling für die Testdauer abschalten (sonst Drosselung, v.a. auf E-Kernen)
+            PowerThrottlingHelper.DisableForCurrentProcess();
+
             // Start dedicated background threads (avoiding ThreadPool starvation to keep UI responsive)
             _cpuStressCts = new System.Threading.CancellationTokenSource();
             var token = _cpuStressCts.Token;
@@ -1963,30 +1966,76 @@ namespace DiagnoseTool
         public void Run(System.Threading.CancellationToken token)
         {
             double val = 12345.67;
-            int counter = 0;
+            ulong acc = 0x9E3779B97F4A7C15UL;
+            bool isMac = OperatingSystem.IsMacOS();
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            long nextYieldMs = 500;
+
             while (!token.IsCancellationRequested)
             {
-                // Tight loop of calculations to fully saturate CPU execution pipelines
+                // Dauerlast ohne Pausen: Gleitkomma (Sqrt/Sin/Cos) + Ganzzahl-Arithmetik
                 for (int j = 0; j < 1000; j++)
                 {
                     val = Math.Sqrt(val * 1.0000001 + j);
                     val = Math.Sin(val) * Math.Cos(val);
+                    acc = unchecked((acc ^ (acc << 13)) * 0x2545F4914F6CDD1DUL + (ulong)j);
                 }
                 if (val > 1000000.0 || double.IsNaN(val) || double.IsInfinity(val))
                 {
                     val = 12345.67;
                 }
-                Result = (float)val; // Force memory write of volatile field to prevent compiler optimization
+                Result = (float)val + (acc & 1UL); // Ergebnis verwenden, damit nichts wegoptimiert wird
 
-                // Yield execution briefly every 200 outer iterations (approx. every 10-15ms)
-                // This prevents macOS from throttling/penalizing the app process due to App Nap / high thermal load,
-                // keeping the UI perfectly responsive while still keeping CPU utilization extremely high.
-                counter++;
-                if (counter % 200 == 0)
+                // Kein Thread.Sleep: unter Windows dauert Sleep(1) ~15,6 ms und hat die Last auf ~40 % gedrückt.
+                // Nur macOS: alle ~500 ms kurz abgeben (ohne zu schlafen), damit App Nap nicht drosselt.
+                if (isMac && sw.ElapsedMilliseconds >= nextYieldMs)
                 {
-                    System.Threading.Thread.Sleep(1);
+                    nextYieldMs = sw.ElapsedMilliseconds + 500;
+                    System.Threading.Thread.Yield();
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// Schaltet die Windows-Energiedrosselung (Power Throttling / EcoQoS) für den Prozess ab,
+    /// damit Stresstest-Threads auch im Hintergrund mit vollem Takt laufen.
+    /// </summary>
+    public static class PowerThrottlingHelper
+    {
+        [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+        private struct PROCESS_POWER_THROTTLING_STATE
+        {
+            public uint Version;
+            public uint ControlMask;
+            public uint StateMask;
+        }
+
+        private const int ProcessPowerThrottling = 4;
+        private const uint PROCESS_POWER_THROTTLING_CURRENT_VERSION = 1;
+        private const uint PROCESS_POWER_THROTTLING_EXECUTION_SPEED = 0x1;
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        private static extern bool SetProcessInformation(IntPtr hProcess, int processInformationClass, ref PROCESS_POWER_THROTTLING_STATE processInformation, uint processInformationSize);
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        private static extern IntPtr GetCurrentProcess();
+
+        public static void DisableForCurrentProcess()
+        {
+            if (!OperatingSystem.IsWindowsVersionAtLeast(10, 0, 16299)) return;
+            try
+            {
+                var state = new PROCESS_POWER_THROTTLING_STATE
+                {
+                    Version = PROCESS_POWER_THROTTLING_CURRENT_VERSION,
+                    ControlMask = PROCESS_POWER_THROTTLING_EXECUTION_SPEED,
+                    StateMask = 0 // 0 = Drosselung AUS
+                };
+                SetProcessInformation(GetCurrentProcess(), ProcessPowerThrottling, ref state,
+                    (uint)System.Runtime.InteropServices.Marshal.SizeOf<PROCESS_POWER_THROTTLING_STATE>());
+            }
+            catch { }
         }
     }
 }
