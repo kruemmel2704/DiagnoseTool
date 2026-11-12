@@ -148,7 +148,9 @@ namespace DiagnoseTool
                     ? "DiagnoseTool-Windows-arm64.exe"
                     : "DiagnoseTool-Windows-x64.exe";
             if (OperatingSystem.IsMacOS())
-                return "DiagnoseTool-macOS-Universal.dmg";
+                return RuntimeInformation.ProcessArchitecture == Architecture.Arm64
+                    ? "DiagnoseTool-macOS-AppleSilicon.dmg"
+                    : "DiagnoseTool-macOS-Intel.dmg";
             return null;
         }
 
@@ -269,12 +271,7 @@ namespace DiagnoseTool
 
                 if (OperatingSystem.IsMacOS())
                 {
-                    string target = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads", info.AssetName);
-                    File.Copy(tempFile, target, true);
-                    Process.Start(new ProcessStartInfo("open", $"\"{target}\"") { UseShellExecute = false });
-                    string msg = $"Update v{info.LatestVersion} wurde geöffnet. Bitte DiagnoseTool beenden und die neue App in den Programme-Ordner ziehen.";
-                    SetState(StateIdle, msg);
-                    return (true, msg);
+                    return InstallMac(info, tempFile);
                 }
 
                 return InstallWindows(info, tempFile);
@@ -417,6 +414,96 @@ namespace DiagnoseTool
             SetState(StateInstalling, msg, 1);
             RequestShutdownForUpdate?.Invoke(msg);
             return (true, msg);
+        }
+
+        /// <summary>
+        /// macOS: Hilfsskript wartet auf das Programmende, tauscht DiagnoseTool.app aus dem DMG aus
+        /// (ditto, Quarantäne entfernt) und startet die App neu. Ohne Schreibrechte per Admin-Abfrage.
+        /// </summary>
+        private static (bool, string) InstallMac(UpdateInfo info, string downloaded)
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "DiagnoseToolUpdate");
+            Directory.CreateDirectory(dir);
+            string dmg = Path.Combine(dir, info.AssetName);
+            File.Copy(downloaded, dmg, true);
+
+            // .../DiagnoseTool.app/Contents/MacOS/DiagnoseTool -> .../DiagnoseTool.app
+            string exe = Environment.ProcessPath ?? "";
+            string bundle = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(exe) ?? "", "..", ".."));
+            if (!bundle.EndsWith(".app", StringComparison.OrdinalIgnoreCase) || !Directory.Exists(bundle))
+            {
+                // Nicht aus einem App-Bundle gestartet: DMG nur öffnen
+                Process.Start(new ProcessStartInfo("open", $"\"{dmg}\"") { UseShellExecute = false });
+                string openMsg = $"Update v{info.LatestVersion} wurde geöffnet – bitte DiagnoseTool.app in den Programme-Ordner ziehen.";
+                SetState(StateIdle, openMsg);
+                return (true, openMsg);
+            }
+
+            string script = Path.Combine(dir, "update.sh");
+            File.WriteAllText(script, BuildMacUpdateScript(Environment.ProcessId, dmg, bundle, AppInfo.Version));
+
+            bool canWrite;
+            try
+            {
+                string probe = Path.Combine(Path.GetDirectoryName(bundle) ?? "/Applications", $".dt_write_test_{Guid.NewGuid():N}");
+                File.WriteAllText(probe, "");
+                File.Delete(probe);
+                canWrite = true;
+            }
+            catch
+            {
+                canWrite = false;
+            }
+
+            try
+            {
+                if (canWrite)
+                {
+                    var psi = new ProcessStartInfo("/usr/bin/nohup") { UseShellExecute = false };
+                    psi.ArgumentList.Add("/bin/bash");
+                    psi.ArgumentList.Add(script);
+                    Process.Start(psi);
+                }
+                else
+                {
+                    // Admin-Abfrage über macOS-Dialog, Skript läuft im Hintergrund weiter
+                    string osa = $"do shell script \"/bin/bash {script.Replace("\"", "\\\"")} > /dev/null 2>&1 &\" with administrator privileges";
+                    var p = Process.Start(new ProcessStartInfo("/usr/bin/osascript") { UseShellExecute = false, ArgumentList = { "-e", osa } });
+                    p?.WaitForExit(120000);
+                    if (p == null || p.ExitCode != 0)
+                        return Fail("Administratorrechte für das Update wurden nicht erteilt.");
+                }
+            }
+            catch (Exception ex)
+            {
+                return Fail($"Update-Skript konnte nicht gestartet werden: {ex.Message}");
+            }
+
+            string msg = $"Update auf v{info.LatestVersion} wird installiert – DiagnoseTool wird neu gestartet.";
+            SetState(StateInstalling, msg, 1);
+            RequestShutdownForUpdate?.Invoke(msg);
+            return (true, msg);
+        }
+
+        private static string ShellQuote(string v) => "'" + v.Replace("'", "'\\''") + "'";
+
+        /// <summary>Bash-Skript für den App-Austausch unter macOS (öffentlich für Tests).</summary>
+        public static string BuildMacUpdateScript(int pid, string dmg, string bundle, string fromVersion)
+        {
+            string b = ShellQuote(bundle), old = ShellQuote(bundle + ".old"), d = ShellQuote(dmg);
+            var sb = new StringBuilder();
+            sb.Append("#!/bin/bash\n");
+            sb.Append("exec >/dev/null 2>&1\n");
+            sb.Append($"while kill -0 {pid} 2>/dev/null; do sleep 1; done\n");
+            sb.Append("MNT=$(mktemp -d)\n");
+            sb.Append($"hdiutil attach {d} -nobrowse -readonly -mountpoint \"$MNT\" -quiet || exit 1\n");
+            sb.Append($"rm -rf {old}\n");
+            sb.Append($"if mv {b} {old} && ditto \"$MNT/DiagnoseTool.app\" {b}; then rm -rf {old}; else rm -rf {b}; mv {old} {b}; fi\n");
+            sb.Append($"xattr -dr com.apple.quarantine {b}\n");
+            sb.Append("hdiutil detach \"$MNT\" -quiet\n");
+            sb.Append($"rm -f {d}\n");
+            sb.Append($"open {b} --args --updated-from={fromVersion}\n");
+            return sb.ToString();
         }
 
         private static (bool, string) Fail(string msg)

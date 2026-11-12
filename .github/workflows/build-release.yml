@@ -84,21 +84,19 @@ jobs:
       with:
         dotnet-version: '10.0.x'
 
-    - name: Build Universal App Bundle
+    - name: Build signed App Bundles & DMGs (Apple Silicon + Intel)
       run: |
         chmod +x create_app_bundle.sh
-        ./create_app_bundle.sh
+        ./create_app_bundle.sh arm64 x64
 
-    - name: Create macOS DMG
-      run: |
-        hdiutil create -volname "DiagnoseTool" -srcfolder DiagnoseTool.app -ov -format UDZO DiagnoseTool-macOS-Universal.dmg
-
-    - name: Create Release and Upload macOS DMG
+    - name: Create Release and Upload macOS Files
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ needs.version.outputs.tag }}
         target_commitish: ${{ github.sha }}
         files: |
-          DiagnoseTool-macOS-Universal.dmg
+          DiagnoseTool-macOS-AppleSilicon.dmg
+          DiagnoseTool-macOS-Intel.dmg
+          install-macos.sh
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
