@@ -435,6 +435,10 @@ namespace DiagnoseTool
                 if (SetProperty(ref _isBatteryTestRunning, value))
                 {
                     OnPropertyChanged(nameof(IsNotBatteryTestRunning));
+                    OnPropertyChanged(nameof(BatteryTestHeader));
+                    // Sonst bleibt "Test abbrechen" deaktiviert (v.a. wenn der Test per Fernsteuerung gestartet wurde)
+                    StartBatteryTestCommand?.RaiseCanExecuteChanged();
+                    StopBatteryTestCommand?.RaiseCanExecuteChanged();
                 }
             }
         }
@@ -462,8 +466,16 @@ namespace DiagnoseTool
         public bool BatteryTestCompleted
         {
             get => _batteryTestCompleted;
-            set => SetProperty(ref _batteryTestCompleted, value);
+            set
+            {
+                if (SetProperty(ref _batteryTestCompleted, value))
+                {
+                    SaveBatteryReportCommand?.RaiseCanExecuteChanged();
+                }
+            }
         }
+
+        public string BatteryTestHeader => $"AKKU-ENTLADUNGSTEST ({_batteryTestTotalDuration.TotalMinutes:F0} MINUTEN)";
 
         public string BatteryTestResults
         {
@@ -596,8 +608,9 @@ namespace DiagnoseTool
                     double currentDrop = BatteryTestStartPercent - BatteryTestCurrentPercent;
                     if (currentDrop < 0) currentDrop = 0;
 
-                    BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Verbleibende Zeit: {1} | Ladestand: {2}% (-{3}%)", 
-                        DateTime.Now, BatteryTestRemainingDisplay, BatteryTestCurrentPercent, currentDrop));
+                    string watts = BatteryInfo.ChargeRateWatts > 0 ? string.Format(" | {0:F1} W", BatteryInfo.ChargeRateWatts) : "";
+                    BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Verbleibende Zeit: {1} | Ladestand: {2:F1} % (-{3:F1} %){4}", 
+                        DateTime.Now, BatteryTestRemainingDisplay, BatteryTestCurrentPercent, currentDrop, watts));
 
                     // Warn if plugged back in
                     if (BatteryInfo.IsConnectedToAc)
@@ -1276,7 +1289,8 @@ namespace DiagnoseTool
             BatteryTestResults = null;
             IsBatteryTestRunning = true;
 
-            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Batterietest gestartet bei {1}% Ladung (Dauer: {2} Min.).", DateTime.Now, BatteryTestStartPercent, minutes));
+            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Batterietest gestartet bei {1:F1} % Ladung (Dauer: {2} Min.).", DateTime.Now, BatteryTestStartPercent, minutes));
+            OnPropertyChanged(nameof(BatteryTestHeader));
             if (info.IsConnectedToAc)
             {
                 BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Warnung: Ladekabel ist angeschlossen. Für verlässliche Testergebnisse bitte das Kabel trennen!", DateTime.Now));
@@ -1354,14 +1368,14 @@ namespace DiagnoseTool
             string statusText = completed ? "vollständig beendet" : "abgebrochen";
             BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Stresstest {1} nach {2} Min. & {3} Sek.", 
                 DateTime.Now, statusText, (int)elapsed.TotalMinutes, elapsed.Seconds));
-            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Endladung: {1}% | Gesamtverbrauch: {2}%", 
+            BatteryTestLog.Add(string.Format("[{0:HH:mm:ss}] - Endladung: {1:F1} % | Gesamtverbrauch: {2:F1} %", 
                 DateTime.Now, BatteryTestCurrentPercent, drain));
 
             if (completed)
             {
                 BatteryTestResults = string.Format(
                     "Testergebnis:\n" +
-                    "• Batterie-Entladung: {0:F0}% in {3:F0} Minuten\n" +
+                    "• Batterie-Entladung: {0:F1} % in {3:F0} Minuten\n" +
                     "• Hochgerechnete Entladungsrate: {1:F1}% pro Stunde\n" +
                     "• Geschätzte Restlaufzeit unter Last: {2:F1} Stunden",
                     drain, dischargeRate, estLife, _batteryTestTotalDuration.TotalMinutes);
@@ -1372,7 +1386,7 @@ namespace DiagnoseTool
                 BatteryTestResults = string.Format(
                     "Testergebnis (Abgebrochen):\n" +
                     "• Testdauer: {0:D2} Min. {1:D2} Sek.\n" +
-                    "• Entladung: {2:F0}%\n" +
+                    "• Entladung: {2:F1} %\n" +
                     "• Laufzeitprognose ungenau aufgrund des Abbruchs.",
                     (int)elapsed.TotalMinutes, elapsed.Seconds, drain);
                 ShowStatus("Akkutest abgebrochen.", false);

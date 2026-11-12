@@ -894,7 +894,7 @@
 
                                         <Grid Margin="0,4">
                                             <TextBlock Text="Aktuelle Ladung:" Classes="TextMuted"/>
-                                            <TextBlock Text="{Binding BatteryInfo.CurrentChargePercent, StringFormat={}{0:F0} %}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
+                                            <TextBlock Text="{Binding BatteryInfo.CurrentChargePercent, StringFormat={}{0:F1} %}" HorizontalAlignment="Right" FontWeight="SemiBold"/>
                                         </Grid>
 
                                         <Grid Margin="0,4">
@@ -915,7 +915,7 @@
                             <!-- Stress Test Card -->
                             <Border Grid.Row="0" Classes="CardStyle" Margin="0,0,0,12">
                                 <StackPanel>
-                                    <TextBlock Text="AKKU-ENTLADUNGSTEST (30 MINUTEN)" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12" Margin="0,0,0,8"/>
+                                    <TextBlock Text="{Binding BatteryTestHeader}" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" FontSize="12" Margin="0,0,0,8"/>
                                     <TextBlock Text="Dieser Test belastet die Hardware durch kontinuierliches Streaming eines YouTube-Testvideos im Hintergrund, um die reale Entladegeschwindigkeit zu ermitteln." Classes="TextSubheader" TextWrapping="Wrap" Margin="0,0,0,12"/>
                                     
                                     <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,12">
