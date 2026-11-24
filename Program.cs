@@ -23,9 +23,24 @@ namespace DiagnoseTool
 
         // Avalonia configuration, don't remove; also used by visual designer.
         public static AppBuilder BuildAvaloniaApp()
-            => AppBuilder.Configure<App>()
+        {
+            var builder = AppBuilder.Configure<App>()
                 .UsePlatformDetect()
                 .WithInterFont()
                 .LogToTrace();
+
+            // In WinPE (DiagnosePE) gibt es kein Direct3D/ANGLE -> Avalonia auf
+            // reines Software-Rendering (GDI) umstellen, sonst startet die GPU-
+            // beschleunigte Oberflaeche nicht.
+            if (PeEnvironment.IsWinPe && OperatingSystem.IsWindows())
+            {
+                builder = builder.With(new Win32PlatformOptions
+                {
+                    RenderingMode = new[] { Win32RenderingMode.Software }
+                });
+            }
+
+            return builder;
+        }
     }
 }

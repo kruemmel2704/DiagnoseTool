@@ -88,11 +88,20 @@
                                      CommandParameter="6" 
                                      Margin="0,8,0,0" />
                                      
-                        <RadioButton Classes="SidebarButton" 
-                                     Content="System Guide" 
+                        <RadioButton Classes="SidebarButton"
+                                     Content="System Guide"
                                      IsChecked="{Binding IsInfoSelected, Mode=OneWay}"
-                                     Command="{Binding SelectTabCommand}" 
-                                     CommandParameter="3" 
+                                     Command="{Binding SelectTabCommand}"
+                                     CommandParameter="3"
+                                     Margin="0,8,0,0" />
+
+                        <!-- Nur in der PE-Edition (DiagnosePE): Netzwerk LAN/WLAN -->
+                        <RadioButton Classes="SidebarButton"
+                                     Content="Netzwerk (PE)"
+                                     IsVisible="{Binding IsPeMode}"
+                                     IsChecked="{Binding IsNetworkSelected, Mode=OneWay}"
+                                     Command="{Binding SelectTabCommand}"
+                                     CommandParameter="7"
                                      Margin="0,8,0,0" />
                     </StackPanel>
 
@@ -1396,7 +1405,95 @@
                             </Grid>
                         </Grid>
                     </Grid>
-                    
+
+                    <!-- ================= NETZWERK (nur PE-Edition) ================= -->
+                    <ScrollViewer VerticalScrollBarVisibility="Auto" IsVisible="{Binding IsNetworkSelected}">
+                        <StackPanel Spacing="12">
+
+                            <!-- Kopf -->
+                            <Border Classes="CardStyle" Padding="16,12" Background="#F8FAFC" BorderBrush="#E2E8F0">
+                                <StackPanel>
+                                    <TextBlock Text="NETZWERK — PE-EDITION" FontWeight="Bold" Foreground="{DynamicResource BrushTextPrimary}" FontSize="13"/>
+                                    <TextBlock Text="LAN und WLAN in der WinPE-Umgebung einrichten und prüfen. WLAN benötigt einen geladenen WLAN-Treiber und den WlanSvc-Dienst."
+                                               Classes="TextMuted" TextWrapping="Wrap" Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Rückmeldung / Status -->
+                            <Border Classes="CardStyle" Padding="14,12" Background="#ECFEFF" BorderBrush="#A5F3FC" BorderThickness="1">
+                                <Grid ColumnDefinitions="Auto,*">
+                                    <TextBlock Grid.Column="0" Text="Status:" FontWeight="Bold" Foreground="{DynamicResource BrushAccentCyan}" Margin="0,0,8,0"/>
+                                    <TextBlock Grid.Column="1" Text="{Binding NetworkStatusText}" TextWrapping="Wrap" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                </Grid>
+                            </Border>
+
+                            <Grid ColumnDefinitions="*,16,*">
+
+                                <!-- LAN -->
+                                <Border Grid.Column="0" Classes="CardStyle" Padding="16">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="KABEL (LAN)" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12"/>
+                                        <TextBlock Text="Netzwerkadapter und IP-Adressen. DHCP erneuern, wenn keine IP vergeben wurde."
+                                                   Classes="TextMuted" TextWrapping="Wrap"/>
+
+                                        <ItemsControl ItemsSource="{Binding NetworkAdapters}">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Border Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1" CornerRadius="6" Padding="10,8" Margin="0,0,0,6">
+                                                        <StackPanel>
+                                                            <TextBlock Text="{Binding Headline}" FontWeight="SemiBold" FontSize="12" Foreground="{DynamicResource BrushTextPrimary}"/>
+                                                            <TextBlock Text="{Binding SubLine}" FontSize="11" Foreground="{DynamicResource BrushTextMuted}" Margin="0,2,0,0"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+
+                                        <Button Classes="ModernButton" Content="Adapter aktualisieren" Command="{Binding RefreshAdaptersCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                        <Button Classes="ModernButton" Content="DHCP erneuern (LAN)" Command="{Binding RenewDhcpCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                        <Button Classes="PrimaryButton" Content="Verbindung testen (Ping 8.8.8.8)" Command="{Binding PingTestCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                    </StackPanel>
+                                </Border>
+
+                                <!-- WLAN -->
+                                <Border Grid.Column="2" Classes="CardStyle" Padding="16">
+                                    <StackPanel Spacing="10">
+                                        <TextBlock Text="WLAN" FontWeight="Bold" Foreground="{DynamicResource BrushTextSecondary}" FontSize="12"/>
+
+                                        <TextBlock Text="Kein WLAN-Adapter/Treiber erkannt."
+                                                   IsVisible="{Binding !IsWlanAvailable}"
+                                                   Classes="TextMuted" TextWrapping="Wrap" Foreground="{DynamicResource BrushDanger}"/>
+
+                                        <StackPanel Spacing="10" IsVisible="{Binding IsWlanAvailable}">
+                                            <TextBlock Text="Netz auswählen, Passwort eingeben und verbinden. Die Rückmeldung erscheint oben im Status."
+                                                       Classes="TextMuted" TextWrapping="Wrap"/>
+
+                                            <Button Classes="ModernButton" Content="WLAN suchen" Command="{Binding ScanWifiCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+
+                                            <ListBox ItemsSource="{Binding WifiNetworks}" SelectedItem="{Binding SelectedWifi}"
+                                                     MaxHeight="180" Background="#F8FAFC" BorderBrush="#E2E8F0" BorderThickness="1">
+                                                <ListBox.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <TextBlock Text="{Binding Display}" FontSize="12"/>
+                                                    </DataTemplate>
+                                                </ListBox.ItemTemplate>
+                                            </ListBox>
+
+                                            <TextBox Text="{Binding WifiPassword}" PasswordChar="●" Watermark="WLAN-Passwort (bei gesicherten Netzen)"/>
+
+                                            <Grid ColumnDefinitions="*,8,*">
+                                                <Button Grid.Column="0" Classes="PrimaryButton" Content="Verbinden" Command="{Binding ConnectWifiCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                                <Button Grid.Column="2" Classes="ModernButton" Content="Trennen" Command="{Binding DisconnectWifiCommand}" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center"/>
+                                            </Grid>
+                                        </StackPanel>
+                                    </StackPanel>
+                                </Border>
+                            </Grid>
+
+                            <TextBlock Text="Arbeite..." IsVisible="{Binding IsNetworkBusy}" Classes="TextMuted" HorizontalAlignment="Center"/>
+                        </StackPanel>
+                    </ScrollViewer>
+
                 </Grid>
 
                 <!-- ================= STATUS BAR ================= -->

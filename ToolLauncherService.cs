@@ -184,17 +184,28 @@ namespace DiagnoseTool
 
         public bool LaunchTool(string key, out string errorMessage)
         {
-            return LaunchToolInternal(key, directDonut: true, out errorMessage);
+            return LaunchToolInternal(key, directDonut: true, "gl", out errorMessage);
         }
 
         public bool LaunchFurMarkDirect(out string errorMessage)
         {
-            return LaunchToolInternal("FurMark", directDonut: true, out errorMessage);
+            // Standard-Renderer: OpenGL (laeuft auch in WinPE, kein Direct3D noetig).
+            return LaunchToolInternal("FurMark", directDonut: true, "gl", out errorMessage);
+        }
+
+        /// <summary>Direkter GPU-Stresstest mit explizitem Renderer: "gl" (OpenGL) oder "vk" (Vulkan).</summary>
+        public bool LaunchFurMarkDirect(string renderer, out string errorMessage)
+        {
+            return LaunchToolInternal("FurMark", directDonut: true, renderer, out errorMessage);
         }
 
         public bool LaunchFurMarkGui(out string errorMessage)
         {
-            return LaunchToolInternal("FurMark", directDonut: false, out errorMessage);
+            // In WinPE die GUI meiden (sie kann Direct3D-Enumeration ausloesen) und
+            // direkt den OpenGL-Stresstest starten.
+            if (PeEnvironment.IsWinPe)
+                return LaunchToolInternal("FurMark", directDonut: true, "gl", out errorMessage);
+            return LaunchToolInternal("FurMark", directDonut: false, "gl", out errorMessage);
         }
 
         public bool StopFurMark(out string errorMessage)
@@ -241,7 +252,7 @@ namespace DiagnoseTool
             return false;
         }
 
-        private bool LaunchToolInternal(string key, bool directDonut, out string errorMessage)
+        private bool LaunchToolInternal(string key, bool directDonut, string renderer, out string errorMessage)
         {
             errorMessage = null;
             var tool = Tools.FirstOrDefault(t => t.Key == key);
@@ -271,8 +282,11 @@ namespace DiagnoseTool
                         string cliExe = Path.Combine(toolDir, "furmark.exe");
                         if (File.Exists(cliExe))
                         {
+                            // Renderer: "vk" -> Vulkan, sonst OpenGL. Beides ohne Direct3D (WinPE-tauglich).
+                            string demo = (renderer != null && renderer.Equals("vk", StringComparison.OrdinalIgnoreCase))
+                                ? "furmark-vk" : "furmark-gl";
                             targetPath = cliExe;
-                            arguments = "--demo furmark-gl --width 1920 --height 1080";
+                            arguments = $"--demo {demo} --width 1920 --height 1080";
                         }
                         else
                         {
