@@ -28,10 +28,18 @@ namespace DiagnoseTool
                     SleepManagementService.RestoreNormalSleep();
                 };
 
-                desktop.MainWindow = new MainWindow
+                var mainWindow = new MainWindow
                 {
                     DataContext = new MainViewModel()
                 };
+
+                // In WinPE (DiagnosePE) als Vollbild-Kiosk starten.
+                if (PeEnvironment.IsWinPe)
+                {
+                    mainWindow.WindowState = Avalonia.Controls.WindowState.FullScreen;
+                }
+
+                desktop.MainWindow = mainWindow;
             }
 
             base.OnFrameworkInitializationCompleted();

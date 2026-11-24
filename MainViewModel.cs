@@ -113,6 +113,7 @@ namespace DiagnoseTool
             ToggleOnlineMonitoringCommand = new RelayCommand(ToggleOnlineMonitoring);
             LaunchFurMarkDonutCommand = new RelayCommand(ExecuteLaunchFurMarkDirect);
             LaunchFurMarkGuiCommand = new RelayCommand(ExecuteLaunchFurMarkGui);
+            LaunchFurMarkVulkanCommand = new RelayCommand(ExecuteLaunchFurMarkVulkan);
 
             // Detect admin privileges
             IsAdmin = IsRunningAsAdmin();
@@ -141,6 +142,9 @@ namespace DiagnoseTool
             // Start API Server and UDP autodiscovery immediately on application start
             StartOnlineMonitoring();
             StartUdpDiscovery();
+
+            // PE-Modus (DiagnosePE): Netzwerk-Einstellungen initialisieren
+            InitNetworkPe();
         }
 
         public HardwareDiagnostics Diagnostics
@@ -198,6 +202,7 @@ namespace DiagnoseTool
                     OnPropertyChanged(nameof(IsBatteryTestSelected));
                     OnPropertyChanged(nameof(IsCpuStressSelected));
                     OnPropertyChanged(nameof(IsRamStressSelected));
+                    OnPropertyChanged(nameof(IsNetworkSelected));
                 }
             }
         }
@@ -210,6 +215,10 @@ namespace DiagnoseTool
         public bool IsBatteryTestSelected => SelectedTab == 4;
         public bool IsCpuStressSelected => SelectedTab == 5;
         public bool IsRamStressSelected => SelectedTab == 6;
+        public bool IsNetworkSelected => SelectedTab == 7;
+
+        /// <summary>True, wenn das Tool in WinPE (DiagnosePE) laeuft. Steuert PE-only UI.</summary>
+        public bool IsPeMode => PeEnvironment.IsWinPe;
 
         public bool IsRamStressRunning
         {
@@ -510,6 +519,7 @@ namespace DiagnoseTool
         public RelayCommand ToggleOnlineMonitoringCommand { get; }
         public RelayCommand LaunchFurMarkDonutCommand { get; }
         public RelayCommand LaunchFurMarkGuiCommand { get; }
+        public RelayCommand LaunchFurMarkVulkanCommand { get; }
 
         public bool HasOrderNumber => !string.IsNullOrWhiteSpace(_orderNumber);
 
@@ -1257,6 +1267,19 @@ namespace DiagnoseTool
             else
             {
                 ShowStatus(error ?? "Fehler beim Starten von FurMark.", true);
+            }
+        }
+
+        /// <summary>GPU-Stresstest ueber Vulkan (kein Direct3D - auch in WinPE nutzbar).</summary>
+        public void ExecuteLaunchFurMarkVulkan()
+        {
+            if (_launcherService.LaunchFurMarkDirect("vk", out string error))
+            {
+                ShowStatus("FurMark GPU-Stresstest (Vulkan) gestartet!", false);
+            }
+            else
+            {
+                ShowStatus(error ?? "Fehler beim Starten von FurMark (Vulkan).", true);
             }
         }
 
